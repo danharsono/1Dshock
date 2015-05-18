@@ -1,5 +1,6 @@
 from python.natconst import *
 import numpy as np
+import warnings
 
 """
 The gas components for the shock code
@@ -13,21 +14,18 @@ class dustSpecs():
         self.gas = gas # gas properties
         self.rho = self.gas.rho * dustfrac
         self.mdust = 3.3
-        if nspecs > 0:
-            self.nspecs = nspecs
-        else:
-            print 
-            print 'Error initializing dust species'
-            print 'Nspecs: %d'%(nspecs)
-            print 'Nspecs must be > 0'
-            print
-            raise SystemExit
-        """"""
         if nspecs == 1:
             self.nspecs = nspecs
             self.size = [size]
             self.mass = [mdust*((4.0/3.)*np.pi*size*size*size)]
             self.numden = [self.rho/a for a in self.mass]
+            self.temp = [10.0]
+            self.vel = [1e5]
+        elif nspecs == 0:
+            self.nspecs = nspecs
+            self.size = [size]
+            self.mass = [mdust*((4.0/3.)*np.pi*size*size*size)]
+            self.numden = [0.0]
             self.temp = [10.0]
             self.vel = [1e5]
         else:
@@ -110,7 +108,7 @@ class dustSpecs():
         #
         # Calculate the recovery temperature
         #
-        if s < 1e-2:
+        if s < 1e-25:
             Trec = Tg
             CHd = ((gamma+1.0)/(gamma-1.)) * (kk/(4.0*np.sqrt(np.pi)*
                 mass*s))
@@ -171,12 +169,12 @@ class dustSpecs():
             # The function returns the middle part of the equation
             # qd = rhogas * qd * |vg - vd|
             #
-            if s < 1e-3:
+            if s < 1e-10:
                 tempqd = ( gas.numden[ispec]*0.25*np.sqrt(
                     (8*kk*Tg)/(np.pi*gas.mass[ispec])) * 0.5 * ( (
                     gas.gamma[ispec]+1.0)/(gas.gamma[ispec]-1.0) ) * 
                     kk * (Tg-Td))
-            elif s > 1e3:
+            elif s > 10.:
                 tempqd = (1.0/8.0)*gas.numden[ispec]*gas.mass[ispec]*(
                     np.abs(vdg)**(3.) )
             else:
@@ -227,12 +225,12 @@ class dustSpecs():
             # The function returns the middle part of the equation
             # qd = rhogas * qd * |vg - vd|
             #
-            if s < 1e-3:
+            if s < 1e-25:
                 tempqd = ( gas.numden[ispec]*0.25*np.sqrt(
                     (8*kk*Tg)/(np.pi*gas.mass[ispec])) * 0.5 * ( (
                     gas.gamma[ispec]+1.0)/(gas.gamma[ispec]-1.0) ) * 
                     kk * (Tg-Td))
-            elif s > 1e3:
+            elif s > 1e0:
                 tempqd = (1.0/8.0)*gas.numden[ispec]*gas.mass[ispec]*(
                     np.abs(vdg)**(3.) )
             else:

@@ -57,7 +57,7 @@ def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
 """
 HD Solver
 """
-def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-5, telerr = 1e-5):
+def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-9, telerr = 1e-9):
     """
     Call the solver with initial conditions v0 and t0
     """
@@ -76,31 +76,32 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
     """"""
     # call the solver
     from shock1d import vectorfield
-    #print w0
-    vode = ode(vectorfield).set_integrator('lsoda', method='bdf', with_jacobian=False, 
-        atol=abserr, rtol=telerr, nsteps=50000)
-    vode.set_initial_value(w0, x[0]).set_f_params(p)
-    wsol = []
-    wsol.append(w0)
     #
     # Iterator
     #
     for ixrange in xrange(x.shape[0]):
-        print ixrange, x[ixrange], x[ixrange+1]
-        dt = (x[ixrange+1]-x[ixrange])/1000
+        vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+            method='bdf', order=5, rtol=telerr, nsteps=5e6)
+        vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
+        wsol = []
+        wsol.append(w0)
+        dt = (x[ixrange+1]-x[ixrange])
+        print
+        print 'Solving...'
+        print '%d  %2.4e'%(ixrange, x[ixrange])
+        print
         #
         # Integrate these two ranges
         #
-        while (vode.successful()):
+        while vode.t < x[ixrange+1]:
             vode.integrate(vode.t+dt)
-            if vode.t == x[ixrange+1]: break
+            print '%e'%(vode.t)
         """"""
-        print dt, vode.t
-        print vode.y
-        raise SystemError
+        #
+        # Update the w0 and x0
+        #
+        w0 = vode.y
     """"""
-    #wsol = odeint(vectorfield, w0, x, args=(p,),
-                  #atol=abserr, rtol=telerr, full_output=0, mxstep=8000)
     return wsol
 """"""
 """

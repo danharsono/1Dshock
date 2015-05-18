@@ -3,7 +3,7 @@ import main
 """
 This is where the shock code is being run
 """
-ndust = 1
+ndust = 0
 ngas = 3
 vshock=6.5e5
 solutions, Jrad = main.shock_main(sizex=3e10, numpoints=8e3, nspecs=ngas,

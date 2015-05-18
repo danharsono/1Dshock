@@ -26,14 +26,13 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         gas = gasSpecs(rho=rhogas, nspecs=nspecs)
         print
         print 'Using gas Species: %d species'%(nspecs)    
-        if ndust is not None:
-            """
-            Generate the dust number densities
-            """
-            dust = dustSpecs(dustfrac=dustfrac, nspecs=ndust, 
-                mdust=mdust, gas=gas, size=adust)
-            print 'Using dust Speces: %d sizes'%(ndust)
-            print 'Initial size: %1.2f micron'%(dust.size[0]*1e4)
+        """
+        Generate the dust number densities
+        """
+        dust = dustSpecs(dustfrac=dustfrac, nspecs=ndust, 
+            mdust=mdust, gas=gas, size=adust)
+        print 'Using dust Speces: %d sizes'%(ndust)
+        print 'Initial size: %1.2f micron'%(dust.size[0]*1e4)
         print
     """"""
     # Check whether there are Nones in the input
