@@ -101,6 +101,8 @@ def vectorfield(x,w, p):
     f4 = gas._calculateR(t=x2)
     f5 = 0.0
     f6 = -(nd/vd)*(fdrag/(mdust*vd)) # This is for number of dust
+    if dust.nspecs == 0:
+        f6 = 0.0
     if np.isnan(f6):
         if dust.nspecs == 0:
             f6 = 0.0
@@ -108,7 +110,10 @@ def vectorfield(x,w, p):
             print 'NAN here in dust density change'
             raise SystemExit
     """"""
-    f7 = fdrag/(mdust*vd) # Dust velocities
+    f7 = fdrag/(mdust*vd) # Dust velocities change
+    if np.abs(f7) > (vd * 1e-5):
+        if dust.nspecs == 0:
+            f7 = 0.0
     if np.isnan(f7):
         if dust.nspecs == 0:
             f7 = 0.0
@@ -118,11 +123,11 @@ def vectorfield(x,w, p):
     """"""
     f8 = Dtd
     f9 = dxa
-    f = [f1, f2, f3, f4, f5, f6, f7, f8, f9]
+    f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9])
+    f[(np.abs(f)<1e-50)] = 0.0
+    print f
     if x2 < 10.0 or (td < 10.0):
         print 'Negative temperatures!'
-        raise SystemExit
-    if x > -8.9e9:
         raise SystemExit
     """"""
     return f

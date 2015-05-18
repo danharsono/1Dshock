@@ -6,7 +6,7 @@ This is where the shock code is being run
 ndust = 0
 ngas = 3
 vshock=6.5e5
-solutions, Jrad = main.shock_main(sizex=3e10, numpoints=8e3, nspecs=ngas,
+solutions, Jrad = main.shock_main(sizex=3e10, numpoints=1e4, nspecs=ngas,
     ndust=ndust, v0=vshock, niter=0, ncpu=2)
 
 #x0 = solutions[:,0]/solutions[:,1]

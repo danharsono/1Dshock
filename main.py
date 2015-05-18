@@ -18,24 +18,24 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         - Merge them and make sure they are consistent
         - iterates the solutions
     """
-    if nspecs is not None:
-        """ 
-        Calculate the number densities of the different species
-        use the rhogas
-        """
-        gas = gasSpecs(rho=rhogas, nspecs=nspecs)
-        print
-        print 'Using gas Species: %d species'%(nspecs)    
-        """
-        Generate the dust number densities
-        """
-        dust = dustSpecs(dustfrac=dustfrac, nspecs=ndust, 
-            mdust=mdust, gas=gas, size=adust)
-        print 'Using dust Speces: %d sizes'%(ndust)
-        print 'Initial size: %1.2f micron'%(dust.size[0]*1e4)
-        print
-    """"""
+    """
+    Calculate the number densities of the different species
+    use the rhogas
+    """
+    gas = gasSpecs(rho=rhogas, nspecs=nspecs)
+    print
+    print 'Using gas Species: %d species'%(nspecs)    
+    """
+    Generate the dust number densities
+    """
+    dust = dustSpecs(dustfrac=dustfrac, nspecs=ndust, 
+        mdust=mdust, gas=gas, size=adust)
+    print 'Using dust Speces: %d sizes'%(ndust)
+    print 'Initial size: %1.2f micron'%(dust.size[0]*1e4)
+    print
+    #
     # Check whether there are Nones in the input
+    #
     print 
     print '####################################################'
     print '  Input parameters       '
@@ -45,10 +45,10 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print '####################################################'
     print 
     #
-    # Solve the pre shock conditions
-    #
+    # Solve the pre shock condition
     # The pre shock grid
-    xpre = np.logspace(np.log10(sizex), np.log10(2.0/3.0 * sizex), 
+    #
+    xpre = np.logspace(np.log10(sizex), np.log10(2.0/3.0 * sizex),
         np.int(numpoints*0.1))
     xpre = xpre[::-1]
     xpre = np.concatenate([np.logspace(-5, np.log10(2.0/3.0 * sizex),

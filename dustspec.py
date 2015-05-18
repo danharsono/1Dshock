@@ -25,7 +25,7 @@ class dustSpecs():
             self.nspecs = nspecs
             self.size = [size]
             self.mass = [mdust*((4.0/3.)*np.pi*size*size*size)]
-            self.numden = [0.0]
+            self.numden = [1e-30]
             self.temp = [10.0]
             self.vel = [1e5]
         else:

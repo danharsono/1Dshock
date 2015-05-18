@@ -57,7 +57,7 @@ def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
 """
 HD Solver
 """
-def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-9, telerr = 1e-9):
+def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-3, telerr = 1e-6):
     """
     Call the solver with initial conditions v0 and t0
     """
@@ -80,23 +80,36 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
     # Iterator
     #
     for ixrange in xrange(x.shape[0]):
-        vode = ode(vectorfield).set_integrator('vode', atol=abserr,
-            method='bdf', order=5, rtol=telerr, nsteps=5e6)
-        vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
+        vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
+            rtol=telerr, nsteps=1e4)
+        vode.set_initial_value(w0, -1.).set_f_params(p)
         wsol = []
         wsol.append(w0)
+        #
+        # Integrate with increasing dt starting from 5e-3
+        #
+        iiter = 1
         dt = (x[ixrange+1]-x[ixrange])
-        print
-        print 'Solving...'
-        print '%d  %2.4e'%(ixrange, x[ixrange])
-        print
-        #
-        # Integrate these two ranges
-        #
-        while vode.t < x[ixrange+1]:
+        print '%e'%(dt)
+        while vode.successful():
+            dt = 1e-3
             vode.integrate(vode.t+dt)
-            print '%e'%(vode.t)
+            print iiter, vode.successful(), dt, vode.t
+            print vode.y
+            print 
+            if not vode.successful():
+                raise SystemError
+            iiter += 1
+            w0 = vode.y
+            tnow = vode.t
+            vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
+                                               rtol=telerr, nsteps=1e4)
+            vode.set_initial_value(w0, tnow).set_f_params(p)
         """"""
+        print iiter, dt
+        print '%4.8e %4.8e'%(x[ixrange], vode.t)
+        raise SystemError
+        dt = (x[ixrange+1]-x[ixrange])
         #
         # Update the w0 and x0
         #
