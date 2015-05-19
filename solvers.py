@@ -57,7 +57,7 @@ def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
 """
 HD Solver
 """
-def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-3, telerr = 1e-6):
+def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-4, telerr = 1e-4):
     """
     Call the solver with initial conditions v0 and t0
     """
@@ -79,43 +79,48 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
     #
     # Iterator
     #
-    for ixrange in xrange(x.shape[0]):
-        vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
-            rtol=telerr, nsteps=1e4)
-        vode.set_initial_value(w0, -1.).set_f_params(p)
-        wsol = []
-        wsol.append(w0)
+    wsol = []
+    for ixrange in xrange(x.shape[0]-1):
+        vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+            rtol=telerr, order=15, method='bdf',nsteps=1e6,
+            first_step = 2e-4)
+#        vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
+#            rtol=telerr, nsteps=1e4)
+        vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
+        wsol1 = [vode.t]+w0
+        wsol.append(wsol1)
         #
         # Integrate with increasing dt starting from 5e-3
         #
         iiter = 1
-        dt = (x[ixrange+1]-x[ixrange])
-        print '%e'%(dt)
-        while vode.successful():
-            dt = 1e-3
+        dt = (x[ixrange+1]-x[ixrange])/1e4
+        while vode.successful() and (vode.t<x[ixrange+1]):
+            dt = dt * np.float(iiter+1)
+#            dt = np.minimum((x[ixrange+1]-x[ixrange])/1e3, dt)
+            if (vode.t + dt) > x[ixrange+1]:
+                dt = np.minimum((x[ixrange+1]-vode.t)+1e-3, dt)
             vode.integrate(vode.t+dt)
-            print iiter, vode.successful(), dt, vode.t
-            print vode.y
-            print 
+            print ixrange, vode.successful()
             if not vode.successful():
                 raise SystemError
-            iiter += 1
+#            iiter += 1
             w0 = vode.y
             tnow = vode.t
-            vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
-                                               rtol=telerr, nsteps=1e4)
+#            vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
+#                rtol=telerr, nsteps=1e4)
+            vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+                rtol=telerr, order=15, method='bdf',nsteps=1e6,
+                first_step = 2e-4)
             vode.set_initial_value(w0, tnow).set_f_params(p)
         """"""
-        print iiter, dt
-        print '%4.8e %4.8e'%(x[ixrange], vode.t)
-        raise SystemError
-        dt = (x[ixrange+1]-x[ixrange])
         #
         # Update the w0 and x0
         #
-        w0 = vode.y
+        w0 = [a for a in vode.y]
     """"""
-    return wsol
+    wsol1 = [vode.t]+w0
+    wsol.append(wsol1)
+    return np.array(wsol)
 """"""
 """
 HDrt Solver

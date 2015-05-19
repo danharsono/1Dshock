@@ -125,7 +125,6 @@ def vectorfield(x,w, p):
     f9 = dxa
     f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9])
     f[(np.abs(f)<1e-50)] = 0.0
-    print f
     if x2 < 10.0 or (td < 10.0):
         print 'Negative temperatures!'
         raise SystemExit

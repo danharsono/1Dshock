@@ -6,15 +6,15 @@ This is where the shock code is being run
 ndust = 0
 ngas = 3
 vshock=6.5e5
-solutions, Jrad = main.shock_main(sizex=3e10, numpoints=1e4, nspecs=ngas,
+solutions, Jrad = main.shock_main(sizex=3e10, numpoints=5e3, nspecs=ngas,
     ndust=ndust, v0=vshock, niter=0, ncpu=2)
-
+#
 #x0 = solutions[:,0]/solutions[:,1]
 x0 = solutions[:,0]/vshock
 x0 = x0/3600.0
-
-#raise SystemExit
-
+#
+# Plot these
+#
 fig, ax0 = subplots(1,1, figsize=[aaonecol, aaonecol])
 subplots_adjust(left=0.15, right=0.8, top=0.98, bottom=0.12)
 
@@ -48,7 +48,8 @@ for t1 in ax1.get_yticklabels():
 
 fig.savefig('shocktest.pdf', dpi=500)
 close()
-#os.system('okular shocktest.pdf')
+os.system('open shocktest.pdf')
+raise SystemExit
 
 
 fig, ax0 = subplots(1,1, figsize=[aaonecol, aaonecol])

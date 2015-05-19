@@ -45,40 +45,30 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print '####################################################'
     print 
     #
-    # Solve the pre shock condition
-    # The pre shock grid
+    # Solve the whole shock
+    # Pre-shock part
     #
-    xpre = np.logspace(np.log10(sizex), np.log10(2.0/3.0 * sizex),
+    xpre = np.logspace(np.log10(sizex), np.log10(1.0/5.0 * sizex),
         np.int(numpoints*0.1))
     xpre = xpre[::-1]
-    xpre = np.concatenate([np.logspace(-5, np.log10(2.0/3.0 * sizex),
+    xpre = np.concatenate([np.logspace(-5, np.log10(4.0/5.0 * sizex),
         np.int(numpoints*0.9)+2), xpre[:-1]])
     xpre = -xpre[::-1]
     xpre = xpre[:-1]
-    if nspecs is None:
-        wpre = solveHD(x=xpre, numden=numden, mass=mass, v0=v0, t0=t0)
-    else:
-        if ndust is None:
-            wpre = solveHD(x=xpre, gas=gas, v0=v0, t0=t0)
-        else:
-            wpre = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0)
-    sol0 = []
-    for ix in xrange(len(xpre)):
-        vel = wpre[ix][0]
-        if gas.nspecs > 1:
-            if ndust is not None:
-                sol0.append([ xpre[ix],wpre[ix][0], wpre[ix][1], 
-                    wpre[ix][2]/vel, wpre[ix][3]/vel, wpre[ix][4]/vel,
-                    wpre[ix][5], wpre[ix][6], wpre[ix][7], wpre[ix][8]
-                    ])
-            else:
-                sol0.append([ xpre[ix],wpre[ix][0], wpre[ix][1], 
-                    wpre[ix][2]/vel, wpre[ix][3]/vel, wpre[ix][4]/vel])
-            
-        else:
-            sol0.append([ xpre[ix],wpre[ix][0], wpre[ix][1], 
-                wpre[ix][2]])
-    """"""
+    #
+    # Add the shock front
+    #
+    xpre = np.concatenate((xpre, np.array([0.0])))
+    #
+    # Add the post shock
+    #
+    xpre = np.concatenate((xpre, -xpre[::-1]))
+    #
+    # Solve this
+    #
+    wpre = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0)
+    sol0 = wpre
+    print sol0[-2]
     print
     print '####################################################'
     print '  Condition before shock      '
@@ -89,7 +79,6 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         print '  Dust density: %2.2e     '%(sol0[-2][7])
     print '####################################################'
     print 
-    raise SystemExit
     #
     # Check few things here
     #
@@ -98,34 +87,34 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     #Shock front
     #
-    if nspecs is None:
-        P1 = (kk/(mugas*mp) * numden * 2.0*mp * sol0[-2][2])
-        P2, rho2, u2 = get_RHcondition(rho1 = mass*numden, 
-            u1 = sol0[-1][1], P1=P1)
-        t2 = P2*(mugas*mp)/(kk*rho2)
-    else:
-        P1 = (kk/(gas.mugas*mp) * gas._sumRho() * 
-              sol0[-2][2])
-        P2, rho2, u2 = get_RHcondition(rho1 = gas._sumRho(), 
-            u1 = sol0[-1][1], P1=P1)
-        t2 = P2*(gas.mugas*mp)/(kk*rho2)
-        gas._updateRho(rho=rho2)
-    """"""
+#    if nspecs is None:
+#        P1 = (kk/(mugas*mp) * numden * 2.0*mp * sol0[-2][2])
+#        P2, rho2, u2 = get_RHcondition(rho1 = mass*numden, 
+#            u1 = sol0[-1][1], P1=P1)
+#        t2 = P2*(mugas*mp)/(kk*rho2)
+#    else:
+#        P1 = (kk/(gas.mugas*mp) * gas._sumRho() * 
+#              sol0[-2][2])
+#        P2, rho2, u2 = get_RHcondition(rho1 = gas._sumRho(), 
+#            u1 = sol0[-1][1], P1=P1)
+#        t2 = P2*(gas.mugas*mp)/(kk*rho2)
+#        gas._updateRho(rho=rho2)
+#    """"""
     #
     # Update dust
     #
-    dust._updateDust(allns=[sol0[-1][6]], size=sol0[-1][9])
-    print u2, rho2, t2
-    print sol0[-1][6], sol0[-1][9]
-    if True:
-        u2 = 2.1e5
-        rho2 = 3.2e-9
-        t2 = 2850.
-        ndust = 2.5e-5
-        dsize = 0.03
-        gas._updateRho(rho=rho2)
-        dust._updateDust(allns=[ndust], size=dsize)
-    #
+#    dust._updateDust(allns=[sol0[-1][6]], size=sol0[-1][9])
+#    print u2, rho2, t2
+#    print sol0[-1][6], sol0[-1][9]
+#    if True:
+#        u2 = 2.1e5
+#        rho2 = 3.2e-9
+#        t2 = 2850.
+#        ndust = 2.5e-5
+#        dsize = 0.03
+#        gas._updateRho(rho=rho2)
+#        dust._updateDust(allns=[ndust], size=dsize)
+#    #
     # Solve the post shock
     #
     #print 
