@@ -4,6 +4,7 @@ from solvers import get_RHcondition, solveHD, solveHDrt
 from oneDRT import calc_tau, calcJrad, calc_tauall
 from gasspec import gasSpecs
 from dustspec import dustSpecs
+import matplotlib.pyplot as plt
 
 """
 The main part of the shock code
@@ -48,10 +49,10 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Solve the whole shock
     # Pre-shock part
     #
-    xpre = np.logspace(np.log10(sizex), np.log10(1.0/5.0 * sizex),
+    xpre = np.logspace(np.log10(sizex), np.log10(4.0/5.0 * sizex),
         np.int(numpoints*0.1))
     xpre = xpre[::-1]
-    xpre = np.concatenate([np.logspace(-5, np.log10(4.0/5.0 * sizex),
+    xpre = np.concatenate([np.logspace(-5, np.log10(1.0/5.0 * sizex),
         np.int(numpoints*0.9)+2), xpre[:-1]])
     xpre = -xpre[::-1]
     xpre = xpre[:-1]
@@ -62,95 +63,13 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     # Add the post shock
     #
-    xpre = np.concatenate((xpre, -xpre[::-1]))
+    xpost = -xpre[:-1]
+    xpre = np.concatenate((xpre, xpost[::-1]))
     #
     # Solve this
     #
     wpre = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0)
     sol0 = wpre
-    print sol0[-2]
-    print
-    print '####################################################'
-    print '  Condition before shock      '
-    print '  velocity:   %2.2f  km/s'%(sol0[-2][1]/1e5)
-    print '  Pre shock T   :   %d     K   '%(sol0[-2][2])
-    if ndust is not None:
-        print '  Dust Temperature: %d     K   '%(sol0[-2][8])
-        print '  Dust density: %2.2e     '%(sol0[-2][7])
-    print '####################################################'
-    print 
-    #
-    # Check few things here
-    #
-    #print xpre[-1], wpre[-1][5], wpre[-1][6], wpre[-1][7], dust.numden[0]
-    #raise SystemExit
-    #
-    #Shock front
-    #
-#    if nspecs is None:
-#        P1 = (kk/(mugas*mp) * numden * 2.0*mp * sol0[-2][2])
-#        P2, rho2, u2 = get_RHcondition(rho1 = mass*numden, 
-#            u1 = sol0[-1][1], P1=P1)
-#        t2 = P2*(mugas*mp)/(kk*rho2)
-#    else:
-#        P1 = (kk/(gas.mugas*mp) * gas._sumRho() * 
-#              sol0[-2][2])
-#        P2, rho2, u2 = get_RHcondition(rho1 = gas._sumRho(), 
-#            u1 = sol0[-1][1], P1=P1)
-#        t2 = P2*(gas.mugas*mp)/(kk*rho2)
-#        gas._updateRho(rho=rho2)
-#    """"""
-    #
-    # Update dust
-    #
-#    dust._updateDust(allns=[sol0[-1][6]], size=sol0[-1][9])
-#    print u2, rho2, t2
-#    print sol0[-1][6], sol0[-1][9]
-#    if True:
-#        u2 = 2.1e5
-#        rho2 = 3.2e-9
-#        t2 = 2850.
-#        ndust = 2.5e-5
-#        dsize = 0.03
-#        gas._updateRho(rho=rho2)
-#        dust._updateDust(allns=[ndust], size=dsize)
-#    #
-    # Solve the post shock
-    #
-    #print 
-    #print 'Solving post shock....'
-    #print
-    #xpost = np.logspace(-5, np.log10(sizex), np.int(numpoints))
-    #if nspecs is None:
-        #wpost = solveHD(x=xpost, numden=rho2/(2.0*mp), mass=mass, 
-            #v0=u2, t0=t2)
-    #else:
-        #if ndust is None:
-            #wpost = solveHD(x=xpost, gas=gas, v0=u2, t0=t2)
-        #else:
-            #wpost = solveHD(x=xpost, gas=gas, dust=dust, 
-                #v0=u2, t0=t2, tdust=wpre[-1][7], vdust=wpre[-1][6])
-    #for ix in xrange(len(xpost)):
-        #vel = wpost[ix][0]
-        #if gas.nspecs > 1:
-            #if ndust is not None:
-                #sol0.append([ xpost[ix],wpost[ix][0], wpost[ix][1], 
-                    #wpost[ix][2]/vel, wpost[ix][3]/vel, wpost[ix][4]/vel,
-                    #wpost[ix][5], wpost[ix][6], wpost[ix][7], 
-                    #wpost[ix][8]
-                    #])
-            #else:
-                #sol0.append([ xpost[ix],wpost[ix][0], wpost[ix][1], 
-                    #wpost[ix][2]/vel, wpost[ix][3]/vel, wpost[ix][4]/vel])
-            
-        #else:
-            #sol0.append([xpost[ix],wpost[ix][0], wpost[ix][1], 
-                #wpost[ix][2]])
-    #""""""
-    #
-    #
-    #
-    sol0 = np.array(sol0)
     print
     print '####################################################'
     print '  Condition at the end      '

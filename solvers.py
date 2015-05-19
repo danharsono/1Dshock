@@ -57,61 +57,151 @@ def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
 """
 HD Solver
 """
-def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-4, telerr = 1e-4):
+def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-12, telerr = 1e-6):
     """
     Call the solver with initial conditions v0 and t0
     """
     w0 = [v0, t0]
-    if gas is None:
-        p = [mass, mugas, gamma]
-    else:
-        w0 = w0 + [a*v0 for a in gas.numden]
-        p = [gas]
-        if dust is not None:
-            p = p + [dust]
-            if tdust is None:
-                w0 = w0 + [dust.numden[0], v0, t0, dust.size[0]]
-            else:
-                w0 = w0 + [dust.numden[0], vdust, tdust, dust.size[0]]
-    """"""
+    w0 = w0 + [a*v0 for a in gas.numden]
+    p = [gas, dust, False]
+    w0 = w0 + [dust.numden[0], v0, t0, dust.size[0]]
+    #
     # call the solver
+    #
     from shock1d import vectorfield
     #
     # Iterator
     #
     wsol = []
     for ixrange in xrange(x.shape[0]-1):
-        vode = ode(vectorfield).set_integrator('vode', atol=abserr,
-            rtol=telerr, order=15, method='bdf',nsteps=1e6,
-            first_step = 2e-4)
-#        vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
-#            rtol=telerr, nsteps=1e4)
-        vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
-        wsol1 = [vode.t]+w0
-        wsol.append(wsol1)
-        #
-        # Integrate with increasing dt starting from 5e-3
-        #
-        iiter = 1
-        dt = (x[ixrange+1]-x[ixrange])/1e4
-        while vode.successful() and (vode.t<x[ixrange+1]):
-            dt = dt * np.float(iiter+1)
-            if (vode.t + dt) > x[ixrange+1]:
-                dt = np.minimum((x[ixrange+1]-vode.t)+1e-3, dt)
-            vode.integrate(vode.t+dt)
-            print iiter, ixrange, vode.successful()
-            print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
-            if not vode.successful():
-                raise SystemError
-            w0 = vode.y
-            tnow = vode.t
-#            vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
-#                rtol=telerr, nsteps=1e4)
+        if x[ixrange] == 0.0:
+            print
+            print 'This is the shock front'
+            print x[ixrange]
+            vshock = w0[0]
+            #
+            # Solve the shock front
+            #
+            print '####################################################'
+            print '  Condition before shock      '
+            print '  velocity:   %2.2f  km/s'%(vshock*1e-5)
+            print '  Pre shock T   :   %d     K   '%(w0[1])
+            if dust.nspecs is not None:
+                print '  Dust Temperature: %d     K   '%(w0[7])
+                print '  Dust density: %2.2e     '%(w0[6])
+            print '####################################################'
+            print
+            P1 = (kk/(gas.mugas*mp) * gas._sumRho() *
+                  w0[1])
+            P2, rho2, u2 = get_RHcondition(rho1 = gas._sumRho(),
+                u1 = w0[0], P1=P1)
+            t2 = P2*(gas.mugas*mp)/(kk*rho2)
+            #
+            # Need to check the species fractions
+            #
+            numdentot = sum(gas.numden)
+            gas.specfrac = gas.numden/numdentot
+            gas._updateRho(rho=rho2)
+            #
+            # Set the new inputs and then integrate
+            #
+            dt = (x[ixrange+1]-x[ixrange])/1e3
+            vode = ode(vectorfield).set_integrator('vode', atol=1e-4,
+                rtol=1e-4, order=15, method='bdf',nsteps=1e6,
+                first_step = dt*1e-9, with_jacobian=True)
+            w0 = [u2, t2]
+            w0 = w0 + [a*u2 for a in gas.numden]
+            w0 = w0 + [dust.numden[0], dust.vel[0], dust.temp[0], dust.size[0]]
+            p = [gas,dust, False]
+            vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
+            wsol1 = [vode.t]+w0
+            wsol.append(wsol1)
+            #
+            # Integrate this
+            #
+            iiter = 1
+            while vode.successful() and (vode.t<x[ixrange+1]):
+                vode.integrate(vode.t+dt)
+                if not vode.successful():
+                    raise SystemError
+                #
+                # Create the new ode solver from this point
+                #
+                w0 = vode.y
+                tnow = vode.t
+                vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+                    rtol=telerr, order=15, method='bdf',nsteps=1e6,
+                    first_step = np.minimum(2e-8, dt/1e9),
+                    with_jacobian=True)
+                #
+                # Update the dust and gas
+                #
+                gas._updateGas(allns=[w0[2]/w0[0], w0[3]/w0[0], w0[4]/w0[0]])
+                dust._updateDust(allns=[w0[5]], size=w0[8])
+                p = [gas, dust, False]
+                vode.set_initial_value(w0, tnow).set_f_params(p)
+                iiter += 1
+                """"""
+            """"""
+            print
+            print 'FINISH shock front'
+            print
+        else:
+            dt = (x[ixrange+1]-x[ixrange])/1e5
             vode = ode(vectorfield).set_integrator('vode', atol=abserr,
-                rtol=telerr, order=15, method='bdf',nsteps=1e6,
-                first_step = 2e-4)
-            vode.set_initial_value(w0, tnow).set_f_params(p)
-            iiter += 1
+                rtol=telerr, order=5, method='bdf',nsteps=5e3,
+                first_step = np.minimum(dt, 2e-4), max_step=dt/5.,
+                with_jacobian=True)
+            vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
+            wsol1 = [vode.t]+w0
+            wsol.append(wsol1)
+            #
+            # Integrate with increasing dt starting from 5e-3
+            #
+            iiter = 1
+            while vode.successful() and (vode.t<x[ixrange+1]):
+                dt *= np.float(iiter)**(1.0/np.float(iiter))
+                if (vode.t + dt) > x[ixrange+1]:
+                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-3, dt)
+                vode.integrate(vode.t+dt)
+#                print iiter, ixrange, vode.successful()
+#                print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
+#                print vode.y
+#                print
+                if not vode.successful():
+                    raise SystemError
+                    """
+                        Switch to lsoda
+                    """
+                    vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
+                        rtol=telerr, nsteps=1e4, max_order_ns=10,
+                        first_step = np.minimum(dt, 2e-4), max_step=dt/1e2)
+                    vode.set_initial_value(w0, tnow).set_f_params(p)
+                    vode.integrate(vode.t+dt)
+                """"""
+                #
+                # Create the new ode solver from this point
+                #
+                w0 = vode.y
+                tnow = vode.t
+                #
+                # Check for NAN
+                #
+                if len(np.isnan(w0).nonzero()[0]) > 1:
+                    raise SystemError
+                vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+                    rtol=telerr, order=5, method='bdf',nsteps=5e3,
+                    first_step = np.minimum(dt, 2e-4), max_step=dt/5.,
+                    with_jacobian=True)
+                #
+                # Update the dust and gas
+                #
+                gas._updateGas(allns=[w0[2]/w0[0], w0[3]/w0[0], w0[4]/w0[0]])
+                dust._updateDust(allns=[w0[5]], size=w0[8])
+                p = [gas, dust, False]
+                vode.set_initial_value(w0, tnow).set_f_params(p)
+                iiter += 1
+            """"""
         """"""
         #
         # Update the w0 and x0

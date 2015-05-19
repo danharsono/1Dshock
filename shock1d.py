@@ -41,7 +41,7 @@ def vectorfield(x,w, p):
     p   :  parameters
     """
     x1, x2, n1, n2, n3, nd, vd, td, ad = w
-    gas, dust = p
+    gas, dust, debug = p
     nd = np.abs(nd)
     # update the gas velocities
     gas._updateGas(allns=[n1/x1, n2/x1, n3/x1])
@@ -100,34 +100,61 @@ def vectorfield(x,w, p):
     f3 = -2.0*gas._calculateR(t=x2)
     f4 = gas._calculateR(t=x2)
     f5 = 0.0
-    f6 = -(nd/vd)*(fdrag/(mdust*vd)) # This is for number of dust
+    #
+    # DUST from here on
+    #
     if dust.nspecs == 0:
+        f8 = 0.0
+        f9 = 0.0
+        f7 = 0.0
         f6 = 0.0
-    if np.isnan(f6):
-        if dust.nspecs == 0:
-            f6 = 0.0
-        else:
-            print 'NAN here in dust density change'
-            raise SystemExit
+    else:
+        f6 = -(nd/vd)*(fdrag/(mdust*vd)) # This is for number of dust
+        if np.isnan(f6):
+            if dust.nspecs == 0:
+                f6 = 0.0
+                raise SystemExit
+                #
+                # This should not be here anymore
+                #
+            else:
+                print 'NAN here in dust density change'
+                raise SystemExit
+        """"""
+        f7 = fdrag/(mdust*vd) # Dust velocities change
+        if np.abs(f7) > (vd * 1e-5):
+            if dust.nspecs == 0:
+                f7 = 0.0
+                raise SystemExit
+                #
+                # This should not be here anymore
+                #
+        if np.isnan(f7):
+            if dust.nspecs == 0:
+                f7 = 0.0
+                raise SystemExit
+                #
+                # This should not be here anymore
+                #
+            else:
+                print 'NAN here in dust density change'
+                raise SystemExit
+        """"""
+        f8 = Dtd
+        f9 = dxa
     """"""
-    f7 = fdrag/(mdust*vd) # Dust velocities change
-    if np.abs(f7) > (vd * 1e-5):
-        if dust.nspecs == 0:
-            f7 = 0.0
-    if np.isnan(f7):
-        if dust.nspecs == 0:
-            f7 = 0.0
-        else:
-            print 'NAN here in dust density change'
-            raise SystemExit
-    """"""
-    f8 = Dtd
-    f9 = dxa
     f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9])
-    f[(np.abs(f)<1e-50)] = 0.0
-    if x2 < 10.0 or (td < 10.0):
-        print 'Negative temperatures!'
-        raise SystemExit
+    if debug:
+        print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
+        print '%e  %e  %e'%(f7, f8, f9)
+        print f
+    f[(np.abs(f/w)<1e-15)] = 0.0
+    #
+    # Need to make sure that the change in v and t is not too much
+    #
+    if (np.abs(f1) > x1*1e5) or (np.abs(f2) > x2*1e5):
+        f[0] = 0.0
+        f[1] = 0.0
     """"""
     return f
 """"""
