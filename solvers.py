@@ -96,14 +96,13 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
         dt = (x[ixrange+1]-x[ixrange])/1e4
         while vode.successful() and (vode.t<x[ixrange+1]):
             dt = dt * np.float(iiter+1)
-#            dt = np.minimum((x[ixrange+1]-x[ixrange])/1e3, dt)
             if (vode.t + dt) > x[ixrange+1]:
                 dt = np.minimum((x[ixrange+1]-vode.t)+1e-3, dt)
             vode.integrate(vode.t+dt)
-            print ixrange, vode.successful()
+            print iiter, ixrange, vode.successful()
+            print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
             if not vode.successful():
                 raise SystemError
-#            iiter += 1
             w0 = vode.y
             tnow = vode.t
 #            vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
@@ -112,6 +111,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 rtol=telerr, order=15, method='bdf',nsteps=1e6,
                 first_step = 2e-4)
             vode.set_initial_value(w0, tnow).set_f_params(p)
+            iiter += 1
         """"""
         #
         # Update the w0 and x0
