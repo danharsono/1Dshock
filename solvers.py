@@ -147,10 +147,19 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             print 'FINISH shock front'
             print
         else:
-            dt = (x[ixrange+1]-x[ixrange])/1e5
+
+            dt = (x[ixrange+1]-x[ixrange])/5.
+            #
+            # Define the steps criteria
+            #
+            maxstep = dt/1e3
+            minstep = np.abs(x[ixrange]*1e-12)
+            #
+            # Setup the vode
+            #
             vode = ode(vectorfield).set_integrator('vode', atol=abserr,
-                rtol=telerr, order=5, method='bdf',nsteps=5e3,
-                first_step = np.minimum(dt, 2e-4), max_step=dt/5.,
+                rtol=telerr, order=5, method='bdf',nsteps=1e8,
+                first_step = minstep, max_step=maxstep,
                 with_jacobian=True)
             vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
             wsol1 = [vode.t]+w0
@@ -160,7 +169,6 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             #
             iiter = 1
             while vode.successful() and (vode.t<x[ixrange+1]):
-                dt *= np.float(iiter)**(1.0/np.float(iiter))
                 if (vode.t + dt) > x[ixrange+1]:
                     dt = np.minimum((x[ixrange+1]-vode.t)+1e-3, dt)
                 vode.integrate(vode.t+dt)
@@ -189,9 +197,12 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 #
                 if len(np.isnan(w0).nonzero()[0]) > 1:
                     raise SystemError
+                #
+                # Setup the vode
+                #
                 vode = ode(vectorfield).set_integrator('vode', atol=abserr,
-                    rtol=telerr, order=5, method='bdf',nsteps=5e3,
-                    first_step = np.minimum(dt, 2e-4), max_step=dt/5.,
+                    rtol=telerr, order=5, method='bdf',nsteps=1e8,
+                    first_step = minstep, max_step=maxstep,
                     with_jacobian=True)
                 #
                 # Update the dust and gas
