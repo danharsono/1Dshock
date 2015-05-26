@@ -17,7 +17,7 @@ class dustSpecs():
         if nspecs == 1:
             self.nspecs = nspecs
             self.size = [size]
-            self.mass = [mdust*((4.0/3.)*np.pi*size*size*size)]
+            self.mass = [self.mdust*((4.0/3.)*np.pi*size*size*size)]
             self.numden = [self.rho/a for a in self.mass]
             self.temp = [10.0]
             self.vel = [1e5]
@@ -51,11 +51,10 @@ class dustSpecs():
         Update rho
         """
         self.rho = rho
-        n0 = self.rho/sum(self.specfrac)
-        self.numden=[a*n0/b for (a,b) in zip(self.specfrac,
-            self.mass)]
         self.mass = [self.mdust*((4.0/3.)*np.pi*self.size*
             self.size*self.size)]
+        self.numden=[self.rho/a for a in self.mass]
+
     """"""
     def _updateDust(self, allns=None, size=None):
         """
@@ -94,8 +93,8 @@ class dustSpecs():
             #
             # Calculate the drag
             #
-            Fdrag = (-np.pi*self.size[0]**(2.)*gas.numden[ispec]*gas.mass[ispec]
-                *Cd/2. *(np.abs(vdg)*vdg) )
+            Fdrag = (-np.pi*self.size[0]**(2.)*gas.numden[ispec]*
+                 gas.mass[ispec]*Cd/2. *(np.abs(vdg)*vdg) )
         """"""
         return Fdrag    
     """"""

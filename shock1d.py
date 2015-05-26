@@ -42,11 +42,7 @@ def vectorfield(x,w, p):
     """
     x1, x2, n1, n2, n3, nd, vd, td, ad = w
     gas, dust, debug = p
-    nd = np.abs(nd)
-    # update the gas velocities
-    gas._updateGas(allns=[n1/x1, n2/x1, n3/x1])
-    dust._updateDust(allns=[nd], size=ad)
-    # 
+    #
     # Calculate the variable here
     #
     varA = 2.0*gas._sumRho()*x1 - (kk*x2/x1)*sum(gas.numden)
@@ -78,7 +74,7 @@ def vectorfield(x,w, p):
     #
     # Dust mass
     #
-    mdust = (4.0/3.0)*np.pi*ad*ad*ad*dust._sumRho()
+    mdust = (4.0/3.0)*np.pi*ad*ad*ad*dust.mdust
     #
     # Dust temperature 
     #
@@ -110,17 +106,7 @@ def vectorfield(x,w, p):
         f6 = 0.0
     else:
         f6 = -(nd/vd)*(fdrag/(mdust*vd)) # This is for number of dust
-        if np.isnan(f6):
-            if dust.nspecs == 0:
-                f6 = 0.0
-                raise SystemExit
-                #
-                # This should not be here anymore
-                #
-            else:
-                print 'NAN here in dust density change'
-                raise SystemExit
-        """"""
+#        f6 = 0.0
         f7 = fdrag/(mdust*vd) # Dust velocities change
         if np.abs(f7) > (vd * 1e-5):
             if dust.nspecs == 0:
@@ -144,10 +130,32 @@ def vectorfield(x,w, p):
         f9 = dxa
     """"""
     f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9])
-    if debug:
+    if nd < 0.0:
         print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
-        print '%e  %e  %e'%(f7, f8, f9)
+        print 'ndust, vdust and Tdust: %2.5e  %2.5e  %d'%(nd, vd, td)
+        print '%e %e  %e  %e'%(f6, f7, f8, f9)
+        print
+        print fdrag, mdust, vd, nd/vd
+        print
         print f
+        print w
+        print
+        print 'DUST is negative!'
+        raise SystemExit
+    if debug:
+        print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
+        print 'Masses: ', gas.mass, dust.mass
+        print
+        print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
+        print 'ndust, vdust and Tdust: %2.5e  %2.5e  %d'%(nd, vd, td)
+        print '%e %e  %e  %e'%(f6, f7, f8, f9)
+        print
+        print fdrag, mdust, nd/vd
+        print f
+        print w
+        print
+#        raise SystemExit
+    """"""
     f[(np.abs(f/w)<1e-15)] = 0.0
     #
     # Need to make sure that the change in v and t is not too much

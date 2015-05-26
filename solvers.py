@@ -1,6 +1,8 @@
 import numpy as np
 from python.natconst import *
 from scipy.integrate import odeint, ode
+from progressbar import ProgressBar, Percentage, Bar
+from copy import deepcopy
 
 """
 Solving the Rankine Hugionot conditions
@@ -57,14 +59,19 @@ def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
 """
 HD Solver
 """
-def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-12, telerr = 1e-6):
+def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-10, telerr = 1e-5):
     """
     Call the solver with initial conditions v0 and t0
     """
+    debug=False # turn this on for debugging
     w0 = [v0, t0]
     w0 = w0 + [a*v0 for a in gas.numden]
-    p = [gas, dust, False]
+    p = [gas, dust, debug]
     w0 = w0 + [dust.numden[0], v0, t0, dust.size[0]]
+    #
+    # Starting VALUES
+    #
+    print w0
     #
     # call the solver
     #
@@ -73,7 +80,13 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
     # Iterator
     #
     wsol = []
+    #
+    # Progress bar
+    #
+    pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval=100.0).start()
     for ixrange in xrange(x.shape[0]-1):
+        pbar.update((np.float(ixrange)/np.float(x.shape[0]))*100.0)
+        dtnow = (x[ixrange+1]-x[ixrange]) # current step to next point
         if x[ixrange] == 0.0:
             print
             print 'This is the shock front'
@@ -90,6 +103,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 print '  Dust Temperature: %d     K   '%(w0[7])
                 print '  Dust density: %2.2e     '%(w0[6])
             print '####################################################'
+            print vode.y
             print
             P1 = (kk/(gas.mugas*mp) * gas._sumRho() *
                   w0[1])
@@ -100,8 +114,20 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             # Need to check the species fractions
             #
             numdentot = sum(gas.numden)
-            gas.specfrac = gas.numden/numdentot
+            gas.specfrac = [a /numdentot for a in gas.numden]
             gas._updateRho(rho=rho2)
+            #
+            # After the shock
+            #
+            print '####################################################'
+            print '  Condition after shock      '
+            print '  Velocity      :   %2.2f km/s'%(u2*1e-5)
+            print '  Temperature   :   %d     K   '%(t2)
+            if dust.nspecs is not None:
+                print '  Dust Temperature: %d     K   '%(w0[7])
+                print '  Dust density: %2.2e     '%(w0[6])
+            print '####################################################'
+            print
             #
             # Set the new inputs and then integrate
             #
@@ -111,7 +137,8 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 first_step = dt*1e-9, with_jacobian=True)
             w0 = [u2, t2]
             w0 = w0 + [a*u2 for a in gas.numden]
-            w0 = w0 + [dust.numden[0], dust.vel[0], dust.temp[0], dust.size[0]]
+            w0 = w0 + [dust.numden[0], dust.vel[0],
+                dust.temp[0], dust.size[0]]
             p = [gas,dust, False]
             vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
             wsol1 = [vode.t]+w0
@@ -127,7 +154,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 #
                 # Create the new ode solver from this point
                 #
-                w0 = vode.y
+                w0 = deepcopy(vode.y)
                 tnow = vode.t
                 vode = ode(vectorfield).set_integrator('vode', atol=abserr,
                     rtol=telerr, order=15, method='bdf',nsteps=1e6,
@@ -137,7 +164,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 # Update the dust and gas
                 #
                 gas._updateGas(allns=[w0[2]/w0[0], w0[3]/w0[0], w0[4]/w0[0]])
-                dust._updateDust(allns=[w0[5]], size=w0[8])
+                dust._updateDust(allns=[w0[5]/w0[6]], size=w0[8])
                 p = [gas, dust, False]
                 vode.set_initial_value(w0, tnow).set_f_params(p)
                 iiter += 1
@@ -145,15 +172,15 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             """"""
             print
             print 'FINISH shock front'
+            print vode.y
             print
         else:
-
-            dt = (x[ixrange+1]-x[ixrange])/5.
+            dt = dtnow/10.
             #
             # Define the steps criteria
             #
-            maxstep = dt/1e3
-            minstep = np.abs(x[ixrange]*1e-12)
+            maxstep = dtnow/1e3
+            minstep = np.abs(x[ixrange]*1e-12) # numerical stability
             #
             # Setup the vode
             #
@@ -167,25 +194,35 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             #
             # Integrate with increasing dt starting from 5e-3
             #
-            iiter = 1
+            iiter = 1 # iteration stepping
             while vode.successful() and (vode.t<x[ixrange+1]):
                 if (vode.t + dt) > x[ixrange+1]:
-                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-3, dt)
+                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-10, dt)
+                if (dust.numden[0] < 0.0):
+                    print iiter, ixrange, vode.successful()
+                    print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
+                    print vode.y
+                    print 'NEGATIVE DUST'
+                    raise SystemError
+                """"""
                 vode.integrate(vode.t+dt)
 #                print iiter, ixrange, vode.successful()
 #                print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
 #                print vode.y
 #                print
-                if not vode.successful():
-                    raise SystemError
+                ierror = 0 # iteration for error keeping
+                while not vode.successful():
                     """
-                        Switch to lsoda
+                        Change the step size again
                     """
-                    vode = ode(vectorfield).set_integrator('lsoda', atol=abserr,
-                        rtol=telerr, nsteps=1e4, max_order_ns=10,
-                        first_step = np.minimum(dt, 2e-4), max_step=dt/1e2)
-                    vode.set_initial_value(w0, tnow).set_f_params(p)
+                    dt = dtnow/np.float(1e1+1e2*ierror)
+                    dt = np.minimum(dt, minstep)
                     vode.integrate(vode.t+dt)
+                    ierror+=1
+                    print 'Warning! %d'%(ierror)
+                    print 'Error in VODE and decreasing step size'
+                    print
+                    if ierror > 10: raise SystemError
                 """"""
                 #
                 # Create the new ode solver from this point
@@ -207,11 +244,20 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 #
                 # Update the dust and gas
                 #
+#                print 'UPDATING DUST AND GAS'
+#                print w0, w0[5]
+#                print
                 gas._updateGas(allns=[w0[2]/w0[0], w0[3]/w0[0], w0[4]/w0[0]])
                 dust._updateDust(allns=[w0[5]], size=w0[8])
-                p = [gas, dust, False]
+                p = [gas, dust, debug]
                 vode.set_initial_value(w0, tnow).set_f_params(p)
                 iiter += 1
+                #
+                # Update the step size
+                #
+                if iiter > 1:
+                    dt = dtnow/np.float(1e1 - iiter)
+                    dt = np.minimum(dt, dtnow/3.0) # set the maximum
             """"""
         """"""
         #

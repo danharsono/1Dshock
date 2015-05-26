@@ -5,6 +5,8 @@ from oneDRT import calc_tau, calcJrad, calc_tauall
 from gasspec import gasSpecs
 from dustspec import dustSpecs
 import matplotlib.pyplot as plt
+from progressbar import ProgressBar, Percentage, Bar
+
 
 """
 The main part of the shock code
@@ -43,6 +45,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print '  Shock velocity:   %2.2f  km/s'%(v0/1e5)
     print '  Pre shock T   :   %d     K   '%(t0)
     print '  Pre-shock n   : 1E%2.1f  cm-3'%(np.log10(gas._sumRho()))
+    print '  Dust densities: %2.3e   cm-3'%(dust._sumRho())
     print '####################################################'
     print 
     #
@@ -65,6 +68,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     xpost = -xpre[:-1]
     xpre = np.concatenate((xpre, xpost[::-1]))
+#    xpre = xpre[xpre>=0.0]
     #
     # Solve this
     #

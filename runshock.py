@@ -6,8 +6,9 @@ This is where the shock code is being run
 ndust = 1
 ngas = 3
 vshock=6.5e5
-solutions, Jrad = main.shock_main(sizex=3e10, numpoints=1e3, nspecs=ngas,
-    ndust=ndust, v0=vshock, niter=0, ncpu=2)
+tgas = 300.
+solutions, Jrad = main.shock_main(sizex=3e10, numpoints=5e3, nspecs=ngas,
+    ndust=ndust, v0=vshock, niter=0, ncpu=2, t0=tgas)
 #
 # position is relative to the shock front
 #
@@ -63,7 +64,7 @@ ax0.semilogy(x0, solutions[:,5], 'g-', lw=1.2,
     label=r'\boldmath${\rm He}$')
 
 if ndust is not None:
-    ax0.semilogy(x0, solutions[:,6]*1e8, 'k--', lw=1.2,
+    ax0.semilogy(x0, solutions[:,6]*1e15, 'k--', lw=1.2,
     label=r'\boldmath${\rm d}$')
 
 ax0 = fig_labs(ax=ax0, xlab=r'\textbf{\boldmath$t$ [h]}',
