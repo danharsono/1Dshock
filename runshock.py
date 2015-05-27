@@ -7,7 +7,7 @@ ndust = 1
 ngas = 3
 vshock=6.5e5
 tgas = 300.
-solutions, Jrad = main.shock_main(sizex=3e10, numpoints=5e3, nspecs=ngas,
+solutions, Jrad = main.shock_main(sizex=3e10, numpoints=1e2, nspecs=ngas,
     ndust=ndust, v0=vshock, niter=0, ncpu=2, t0=tgas)
 #
 # position is relative to the shock front

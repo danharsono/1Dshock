@@ -77,6 +77,10 @@ class dustSpecs():
         vdg = (vd - vg)
         if vdg == 0.0:
             return 0.0
+        if (Tg < 0.0) or (Td < 0):
+            print 'Negative temperatures! in Drag'
+            raise SystemExit
+        """"""
         #
         # The s variable
         #
@@ -95,6 +99,10 @@ class dustSpecs():
             #
             Fdrag = (-np.pi*self.size[0]**(2.)*gas.numden[ispec]*
                  gas.mass[ispec]*Cd/2. *(np.abs(vdg)*vdg) )
+            if np.isnan(Cd) or np.isnan(Fdrag):
+                print ispec, vdg, s, Cd, Fdrag
+                print 'NAN is found in Drag force!'
+                raise SystemExit
         """"""
         return Fdrag    
     """"""
@@ -107,23 +115,15 @@ class dustSpecs():
         #
         # Calculate the recovery temperature
         #
-        if s < 1e-25:
-            Trec = Tg
-            CHd = ((gamma+1.0)/(gamma-1.)) * (kk/(4.0*np.sqrt(np.pi)*
-                mass*s))
-        elif s > 1e2:
-            Trec = 2.0*(gamma-1.0)/(gamma+1) * s*s*Tg
-            CHd = ((gamma+1.)/(gamma-1.))*(kk/(8.0*mass))
-        else:
-            bottom = ((2.*gamma)/(gamma-1.) * 2.*s*s - 0.5 + 
-                (2./np.sqrt(np.pi)) * np.exp(-s*s) * erfinv(s))
-            Trec = (Tg*(gamma-1.)/(gamma+1.) / bottom)
-            #
-            # Calculate the heat transfer coefficient
-            #
-            CHd = (gamma+1.)/(gamma-1.) * (kk/(8.0*mass*s*s)) * ( 
-                (s/np.sqrt(np.pi))*np.exp(-s*s) + ((0.5 + s*s) * 
-                erf(s)) )
+        fact = ((2.*gamma)/(gamma-1.) + 2.*s*s - ( 1./(
+            0.5 + s*s + (s/np.sqrt(np.pi)) * np.exp(-s*s) * (1./erf(s)))) )
+        Trec = Tg*(gamma-1.)/(gamma+1.) * fact
+        #
+        # Calculate the heat transfer coefficient
+        #
+        CHd = (gamma+1.)/(gamma-1.) * (kk/(8.0*mass*s*s)) * (
+            (s/np.sqrt(np.pi))*np.exp(-s*s) + ((0.5 + s*s) * 
+            erf(s)) )
         """"""
         #
         # Calculate the heating rate
@@ -155,8 +155,6 @@ class dustSpecs():
         # veldif
         #
         vdg = (vd - vg)
-        if (vdg ==0) and (Tg == Td):
-            return 0.0
         #
         # The s variable
         #
@@ -168,19 +166,16 @@ class dustSpecs():
             # The function returns the middle part of the equation
             # qd = rhogas * qd * |vg - vd|
             #
-            if s < 1e-10:
-                tempqd = ( gas.numden[ispec]*0.25*np.sqrt(
-                    (8*kk*Tg)/(np.pi*gas.mass[ispec])) * 0.5 * ( (
-                    gas.gamma[ispec]+1.0)/(gas.gamma[ispec]-1.0) ) * 
-                    kk * (Tg-Td))
-            elif s > 10.:
-                tempqd = (1.0/8.0)*gas.numden[ispec]*gas.mass[ispec]*(
-                    np.abs(vdg)**(3.) )
+            gam = gas.gamma[ispec]
+            mass = gas.mass[ispec]
+            if vdg < 1e1:
+                tempqd = (gam+1.)/(gam-1.) * (Tg - Td) * (np.sqrt(
+                    (kk*kk*kk*Tg)/(8.*np.pi*mass*mass*mass)) *
+                    gas.numden[ispec]*mass)
             else:
-                tempqd = self._calcqdust(Tg=Tg, s=s, Td=Td, 
-                    gamma=gas.gamma[ispec], mass=gas.mass[ispec])
-                tempqd = gas.numden[ispec]*gas.mass[ispec] * (
-                    tempqd * np.abs(vg - vd) )
+                tempqd = ( self._calcqdust(Tg=Tg, s=s, Td=Td,
+                    gamma=gam, mass=mass) *
+                    gas.numden[ispec]*gas.mass[ispec] * np.abs(vg - vd))
             qd += tempqd
         """"""
         #
@@ -191,7 +186,10 @@ class dustSpecs():
         # Calculate the dxa
         #
         if Jrad is None:
-            Jrad = 0.0
+            Jrad = ss*Td**(4.)/(np.pi)
+        netheat = (qd + self._getEps()*( np.pi*Jrad - ss*Td**(4.)) )
+        if netheat < 0.0:
+            fevap = 0.0
         dxa = -fevap/(self._sumRho()*Hevap*vd) * (qd +
             self._getEps()*( np.pi*Jrad - ss*Td**(4.)) )
         return dxa
@@ -210,8 +208,6 @@ class dustSpecs():
         # veldif
         #
         vdg = (vd - vg)
-        if (vdg ==0) and (Tg == Td):
-            return 0.0
         #
         # The s variable
         # This has to be done per gas species
@@ -224,19 +220,16 @@ class dustSpecs():
             # The function returns the middle part of the equation
             # qd = rhogas * qd * |vg - vd|
             #
-            if s < 1e-25:
-                tempqd = ( gas.numden[ispec]*0.25*np.sqrt(
-                    (8*kk*Tg)/(np.pi*gas.mass[ispec])) * 0.5 * ( (
-                    gas.gamma[ispec]+1.0)/(gas.gamma[ispec]-1.0) ) * 
-                    kk * (Tg-Td))
-            elif s > 1e0:
-                tempqd = (1.0/8.0)*gas.numden[ispec]*gas.mass[ispec]*(
-                    np.abs(vdg)**(3.) )
+            gam = gas.gamma[ispec]
+            mass = gas.mass[ispec]
+            if vdg < 1e1:
+                tempqd = (gam+1.)/(gam-1.) * (Tg - Td) * (np.sqrt(
+                    (kk*kk*kk*Tg)/(8.*np.pi*mass*mass*mass)) *
+                    gas.numden[ispec]*mass)
             else:
-                tempqd = self._calcqdust(Tg=Tg, s=s, Td=Td, 
-                    gamma=gas.gamma[ispec], mass=gas.mass[ispec])
-                tempqd = gas.numden[ispec]*gas.mass[ispec] * (
-                    tempqd * np.abs(vg - vd) )
+                tempqd = ( self._calcqdust(Tg=Tg, s=s, Td=Td,
+                    gamma=gam, mass=mass) *
+                    gas.numden[ispec]*gas.mass[ispec] * np.abs(vg - vd))
             qd += tempqd
         """"""
         #
@@ -254,12 +247,11 @@ class dustSpecs():
         # Calculate the rate of change
         #
         if Jrad is None:
-            Jrad = 0.0
-        dxtd = ( (3. * (1.0 - fevap))/( vd * Cpd * 
+            Jrad = ss*Td**(4.)/(np.pi)
+        dxtd = ( (3. * (1.0 - fevap))/( vd * Cpd *
             self._sumRho() * self.size[0]) * (qd + 
             self._getEps()*( np.pi*Jrad -
             ss*Td**(4.)) ) )
-        if dxtd < 0.0: dxtd = 0
         return dxtd
     """"""
 """"""

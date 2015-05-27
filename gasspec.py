@@ -9,7 +9,7 @@ class gasSpecs():
     Constructor
     Destructor is not required in python
     """
-    def __init__(self, rho = 1e-19, nspecs=1):
+    def __init__(self, rho = 1e-9, nspecs=3):
         self.rho = rho
         if nspecs > 0:
             self.nspecs = nspecs
@@ -50,7 +50,7 @@ class gasSpecs():
             """
             self.nspecs=4
             self.mass = [mp, 2.0*mp, 4.0*mp, 44.0*mp]
-            self.specfrac = [0.01, 0.74, 0.25, 0]
+            self.specfrac = [0.01, 0.74, 0.25, 0.0]
             mu = 0.01 + 0.65/2.0 + 0.34/4.0
             self.mugas = mu**(-1.0)
             n0 = self.rho/sum(self.specfrac)

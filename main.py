@@ -72,7 +72,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     # Solve this
     #
-    wpre = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0)
+    wpre, vshock = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0)
     sol0 = wpre
     print
     print '####################################################'

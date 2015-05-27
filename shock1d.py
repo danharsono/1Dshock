@@ -1,5 +1,6 @@
 import numpy as np
 from python.natconst import *
+import time
 
 """
 Set global variables here
@@ -106,28 +107,33 @@ def vectorfield(x,w, p):
         f6 = 0.0
     else:
         f6 = -(nd/vd)*(fdrag/(mdust*vd)) # This is for number of dust
-#        f6 = 0.0
         f7 = fdrag/(mdust*vd) # Dust velocities change
-        if np.abs(f7) > (vd * 1e-5):
-            if dust.nspecs == 0:
-                f7 = 0.0
-                raise SystemExit
-                #
-                # This should not be here anymore
-                #
-        if np.isnan(f7):
-            if dust.nspecs == 0:
-                f7 = 0.0
-                raise SystemExit
-                #
-                # This should not be here anymore
-                #
-            else:
-                print 'NAN here in dust density change'
-                raise SystemExit
-        """"""
         f8 = Dtd
         f9 = dxa
+#        if np.abs(f8) > 1e2:
+#            print 'weird...'
+#            print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
+#            print 'Masses: ', gas.mass, dust.mass
+#            print
+#            print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
+#            print 'ndust, vdust and Tdust: %2.5e  %2.5e  %d'%(nd, vd, td)
+#            print '%e %e  %e  %e'%(f6, f7, f8, f9)
+#            print
+#            print fdrag, mdust, nd/vd
+#            print w
+#            raise SystemExit
+        if np.isnan(f6) or np.isnan(f7) or np.isnan(f8) or np.isnan(f9):
+            print 'NAN is found!'
+            print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
+            print 'Masses: ', gas.mass, dust.mass
+            print
+            print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
+            print 'ndust, vdust and Tdust: %2.5e  %2.5e  %d'%(nd, vd, td)
+            print '%e %e  %e  %e'%(f6, f7, f8, f9)
+            print
+            print fdrag, mdust, nd/vd
+            print w
+            raise SystemExit
     """"""
     f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9])
     if nd < 0.0:
@@ -147,23 +153,24 @@ def vectorfield(x,w, p):
         print 'Masses: ', gas.mass, dust.mass
         print
         print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
-        print 'ndust, vdust and Tdust: %2.5e  %2.5e  %d'%(nd, vd, td)
+        print 'ndust, vdust and Tdust: %2.5e  %2.5e  %e'%(nd, vd, td)
         print '%e %e  %e  %e'%(f6, f7, f8, f9)
         print
         print fdrag, mdust, nd/vd
         print f
         print w
         print
+        time.sleep(0.05)
 #        raise SystemExit
     """"""
     f[(np.abs(f/w)<1e-15)] = 0.0
-    #
-    # Need to make sure that the change in v and t is not too much
-    #
-    if (np.abs(f1) > x1*1e5) or (np.abs(f2) > x2*1e5):
-        f[0] = 0.0
-        f[1] = 0.0
-    """"""
+#    #
+#    # Need to make sure that the change in v and t is not too much
+#    #
+#    if (np.abs(f1) > x1*1e5) or (np.abs(f2) > x2*1e5):
+#        f[0] = 0.0
+#        f[1] = 0.0
+#    """"""
     return f
 """"""
 
