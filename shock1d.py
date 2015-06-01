@@ -41,8 +41,8 @@ def vectorfield(x,w, p):
     x   :  position with respect to the shock
     p   :  parameters
     """
-    x1, x2, n1, n2, n3, nd, vd, td, ad = w
     gas, dust, debug = p
+    x1, x2, n1, n2, n3, n4, nd, vd, td, ad = w
     #
     # Calculate the variable here
     #
@@ -58,9 +58,9 @@ def vectorfield(x,w, p):
     #
     varD = (gas._sumEnergy()*kk*x2 +
         gas._sumRho()*x1*x1*1.5 +
-        (kk*gas._sumRho()/(gas.mugas*mp)) * x2)
+        (kk*gas._sumRho()/(gas._getMugas()*mp)) * x2)
     varE = (kk*gas._sumEnergy() +
-        (kk*gas._sumRho()/(gas.mugas*mp)))*x1
+        (kk*gas._sumRho()/(gas._getMugas()*mp)))*x1
     #
     # Calculate the variable F with the dust
     #
@@ -97,20 +97,27 @@ def vectorfield(x,w, p):
     f3 = -2.0*gas._calculateR(t=x2)
     f4 = gas._calculateR(t=x2)
     f5 = 0.0
+    f6 = -(nd*vd*4.0*np.pi*dust._sumRho()*ad*ad)/(gas.mass[3])*dxa
     #
     # DUST from here on
     #
     if dust.nspecs == 0:
+        f7 = 0.0
         f8 = 0.0
         f9 = 0.0
-        f7 = 0.0
-        f6 = 0.0
+        f10 = 0.0
     else:
-        f6 = -(nd/vd)*(fdrag/(mdust*vd)) # This is for number of dust
-        f7 = fdrag/(mdust*vd) # Dust velocities change
-        f8 = Dtd
-        f9 = dxa
-        if np.isnan(f6) or np.isnan(f7) or np.isnan(f8) or np.isnan(f9):
+        f7 = -(nd/vd)*(fdrag/(mdust*vd)) # This is for number of dust
+        f8 = fdrag/(mdust*vd) # Dust velocities change
+        f9 = Dtd
+        f10 = dxa
+        if np.abs(f10) > 0.0:
+            f9 = 0.0
+            f10 = dxa
+        if np.abs(ad) <= 1e-5:
+            f9 = Dtd
+            f10 = 0.0
+        if np.isnan(f7) or np.isnan(f8) or np.isnan(f9) or np.isnan(f10):
             print 'NAN is found!'
             print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
             print 'Masses: ', gas.mass, dust.mass
@@ -123,7 +130,7 @@ def vectorfield(x,w, p):
             print w
             raise SystemExit
     """"""
-    f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9])
+    f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9, f10])
     if nd < 0.0:
         print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
         print 'ndust, vdust and Tdust: %2.5e  %2.5e  %d'%(nd, vd, td)
@@ -136,12 +143,16 @@ def vectorfield(x,w, p):
         print
         print 'DUST is negative!'
         raise SystemExit
-    if debug:
+    if debug or np.abs(f1)>1e4 or np.abs(f2) > 1e4:
         print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
         print 'Masses: ', gas.mass, dust.mass
+        print varA, varB, varC, varD, varE, varF
         print
         print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
         print 'ndust, vdust and Tdust: %2.5e  %2.5e  %e'%(nd, vd, td)
+        print 'Fdrag: %2.5e'%(fdrag)
+        print 'Dtd: %2.5e'%(Dtd)
+        print 'Dxa: %2.5e'%(dxa)
         print '%e %e  %e  %e'%(f6, f7, f8, f9)
         print
         print fdrag, mdust, nd/vd
@@ -151,7 +162,6 @@ def vectorfield(x,w, p):
         time.sleep(0.05)
 #        raise SystemExit
     """"""
-    f[(np.abs(f/w)<1e-15)] = 0.0
     return f
 """"""
 

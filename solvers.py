@@ -20,8 +20,6 @@ def get_RHcondition2(u1=None, t1 = None, gas=None):
     #
     gam = gas._getGamma()
     M1 = gas._sumRho()*u1*u1/(gam*sum(gas.numden)*kk*t1)
-    print sum(gas.numden), gas._sumRho(), gam
-    print sum(gas.numden)*kk*t1
     #
     # Solve the densities, velocities and temperatures
     #
@@ -29,6 +27,7 @@ def get_RHcondition2(u1=None, t1 = None, gas=None):
     u2 = u1 * (gas._sumRho()/rho2)
     t2 = t1 * ( (gam - 1.) * M1 + 2.)*(2.*gam*M1 - (gam-1.))/( (gam + 1.)*
         (gam+1.)*M1)
+    print 'Mach: %d'%(np.sqrt(M1))
     print 'Density: %2.5e -->  %2.5e'%(gas._sumRho()/(2.0*mp), rho2/(2.0*mp))
     print 'Temperature: %2.5e --> %2.5e'%(t1, t2)
     print 'Velocity: %2.5e --> %2.5e'%(u1, u2)
@@ -92,7 +91,7 @@ def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
 """
 HD Solver
 """
-def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-5, telerr = 1e-4):
+def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-8, telerr = 1e-7):
     """
     Call the solver with initial conditions v0 and t0
     """
@@ -105,6 +104,8 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
     # Starting VALUES
     #
     print w0
+    print ['%2.5e'%(a) for a in gas.numden]
+    print
     #
     # call the solver
     #
@@ -116,9 +117,9 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
     #
     # Progress bar
     #
-    pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval=100.0).start()
+    pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval=50.0).start()
     for ixrange in xrange(x.shape[0]-1):
-        pbar.update((np.float(ixrange)/np.float(x.shape[0]))*100.0)
+        pbar.update((np.float(ixrange)/np.float(x.shape[0]))*50.0)
         dtnow = (x[ixrange+1]-x[ixrange]) # current step to next point
         if x[ixrange] == 0.0:
             debug = False
@@ -134,23 +135,23 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             print '  velocity:   %2.2f  km/s'%(vshock*1e-5)
             print '  Pre shock T   :   %d     K   '%(w0[1])
             if dust.nspecs is not None:
-                print '  Dust Temperature: %d     K   '%(w0[7])
-                print '  Dust density: %2.2e     '%(w0[6])
-                print '  Dust size:  %2.3e       '%(w0[8])
+                print '  Dust Temperature: %d     K   '%(w0[8])
+                print '  Dust density: %2.2e     '%(w0[7])
+                print '  Dust size:  %2.3e       '%(w0[9])
             print '####################################################'
             print vode.y
+            print gas.specfrac
+            print gas._sumRho(), ['%2.4e'%(a) for a in gas.numden]
             print
-            P1 = (kk/(gas.mugas*mp) * gas._sumRho() *
-                  w0[1])
-            P2, rho2, u2 = get_RHcondition(rho1 = gas._sumRho(),
-                u1 = w0[0], P1=P1)
-            t2 = P2*(gas.mugas*mp)/(kk*rho2)
+            rho2, u2, t2 = get_RHcondition2(u1=vshock, t1=w0[1], gas=gas)
             #
             # Need to check the species fractions
             #
             numdentot = sum(gas.numden)
             gas.specfrac = [a /numdentot for a in gas.numden]
             gas._updateRho(rho=rho2)
+            print gas.specfrac
+            print rho2, gas._sumRho(), ['%2.4e'%(a) for a in gas.numden]
             #
             # After the shock
             #
@@ -159,15 +160,15 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             print '  Velocity      :   %2.2f km/s'%(u2*1e-5)
             print '  Temperature   :   %d     K   '%(t2)
             if dust.nspecs is not None:
-                print '  Dust Temperature: %d     K   '%(w0[7])
-                print '  Dust density: %2.2e     '%(w0[6])
-                print '  Dust size:  %2.3e       '%(w0[8]), dust.size[0]
+                print '  Dust Temperature: %d     K   '%(w0[8])
+                print '  Dust density: %2.2e     '%(w0[7])
+                print '  Dust size:  %2.3e       '%(w0[9]), dust.size[0]
             print '####################################################'
             print
             #
             # Set the new inputs and then integrate
             #
-            dt = (x[ixrange+1]-x[ixrange])/1e1
+            dt = (x[ixrange+1]-x[ixrange])/50.
             vode = ode(vectorfield).set_integrator('vode', atol=1e-8,
                 rtol=1e-12, order=5, method='bdf',nsteps=1e4,
                 first_step = dt*1e-9, with_jacobian=True)
@@ -187,10 +188,6 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 if (vode.t + dt) > x[ixrange+1]:
                     dt = np.minimum((x[ixrange+1]-vode.t)+1e-10, dt)
                 vode.integrate(vode.t+dt)
-                print iiter, ixrange, vode.successful()
-                print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
-                print vode.y
-                print
                 if not vode.successful():
                     raise SystemError
                 #
@@ -199,14 +196,17 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 w0 = deepcopy(vode.y)
                 tnow = vode.t
                 vode = ode(vectorfield).set_integrator('vode', atol=abserr,
-                    rtol=telerr, order=15, method='bdf',nsteps=1e6,
+                    rtol=telerr, order=5, method='bdf',nsteps=1e6,
                     first_step = np.minimum(2e-8, dt/1e9),
                     with_jacobian=True)
                 #
                 # Update the dust and gas
                 #
-                gas._updateGas(allns=[w0[2]/w0[0], w0[3]/w0[0], w0[4]/w0[0]])
-                dust._updateDust(allns=[w0[5]/w0[6]], size=w0[8])
+                gas._updateGas(allns=[w0[2+ispec]/w0[0] for ispec
+                    in xrange(gas.nspecs)], tgas=w0[1], vgas=w0[0])
+                dust._updateDust(allns=[w0[gas.nspecs+2]],
+                   size=w0[gas.nspecs+5], tdust=w0[gas.nspecs+4],
+                   vdust=w0[gas.nspecs+3])
                 p = [gas, dust, debug]
                 vode.set_initial_value(w0, tnow).set_f_params(p)
                 iiter += 1
@@ -215,15 +215,16 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             print
             print 'FINISH shock front'
             print vode.y
-#            raise SystemError
             print
         else:
-            dt = dtnow/5.
+            dt = dtnow/5e1
             #
             # Define the steps criteria
             #
-            maxstep = dtnow/1e3
+            maxstep = dtnow/1e2
             minstep = np.abs(x[ixrange]*1e-12) # numerical stability
+            if x[ixrange] > 0:
+                debug = False
             #
             # Setup the vode
             #
@@ -283,8 +284,11 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 #
                 # Update the dust and gas
                 #
-                gas._updateGas(allns=[w0[2]/w0[0], w0[3]/w0[0], w0[4]/w0[0]])
-                dust._updateDust(allns=[w0[5]], size=w0[8])
+                gas._updateGas(allns=[w0[2+ispec]/w0[0] for ispec
+                    in xrange(gas.nspecs)], tgas=w0[1], vgas=w0[0])
+                dust._updateDust(allns=[w0[gas.nspecs+2]],
+                    size=w0[gas.nspecs+5], tdust=w0[gas.nspecs+4],
+                    vdust=w0[gas.nspecs+3])
                 p = [gas, dust, debug]
                 vode.set_initial_value(w0, tnow).set_f_params(p)
                 iiter += 1
@@ -300,8 +304,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
         # Update the w0 and x0
         #
         w0 = [a for a in vode.y]
-        print ixrange, vode.t, w0
-        print
+#        print ixrange, ['%2.5e'%(a) for a in w0]
     """"""
     wsol1 = [vode.t]+w0
     wsol.append(wsol1)

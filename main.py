@@ -52,7 +52,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Solve the whole shock
     # Pre-shock part
     #
-    xpre = np.logspace(-8, np.log10(sizex), numpoints)
+    xpre = np.logspace(-12, np.log10(sizex), numpoints)
     xpre = -xpre[::-1]
     xpre = xpre[:-1]
     #
@@ -63,7 +63,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Add the post shock
     #
 #    xpost = -xpre[:-1]
-    xpost = -xpre[-25:-1]
+    xpost = -xpre[-241:-1]
     xpre = np.concatenate((xpre, xpost[::-1]))
     #
     # Solve this

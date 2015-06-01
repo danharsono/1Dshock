@@ -40,7 +40,7 @@ class gasSpecs():
             self.nspecs =3
             self.mass = [mp, 2.0*mp, 4.0*mp]
             self.specfrac = [0.01, 0.74, 0.25]
-            mu = 0.01 + 0.65/2.0 + 0.34/4.0
+            mu = 0.01 + 0.74/2.0 + 0.25/4.0
             self.mugas = mu**(-1.0)
             n0 = self.rho/sum(self.specfrac)
             self.numden = [a*n0/b for (a,b) in zip(self.specfrac,
@@ -63,6 +63,12 @@ class gasSpecs():
     """"""
     def _sumRho(self):
         return sum([a*b for (a,b) in zip(self.numden, self.mass)])
+    """"""
+    def _getMugas(self):
+        curfrac = [(a*b)/self._sumRho() for (a,b) in
+               zip(self.numden, self.mass)]
+        mu = [a/(b/mp) for (a,b) in zip(curfrac, self.mass)]
+        return sum(mu)**(-1.)
     """"""
     def _sumEnergy(self):
         return sum([a*b*c for (a,b,c) in 
@@ -118,36 +124,43 @@ class gasSpecs():
         """
         normrate = self._calculateR(t=t)
         if self.nspecs > 1:
-            if dust is None:
-                first = 2.0*normrate*(vel*self.mass[0]+(kk*t/vel))
-                second = -normrate*(vel*self.mass[1]+(kk*t/vel))
-                third = 0.0
-                return first+second+third
-            elif (dust is not None):
-                first = 2.0*normrate*(vel*self.mass[0]+(kk*t/vel))
-                second = -normrate*(vel*self.mass[1]+(kk*t/vel))
-                third = 0.0
-                #
-                # This is now dust stuff
-                #
+            first = 2.0*normrate*(vel*self.mass[0]+(kk*t/vel))
+            second = -normrate*(vel*self.mass[1]+(kk*t/vel))
+            third = 0.0
+            #
+            # This is now dust stuff
+            #
+            if dust is not None:
                 if Jrad is None:
-                    fourth = - (dust.numden[0]* (
-                        dust._calculateFdrag(vd=veld, 
-                        vg=vel, Tg=t, Td=td, gas=self)) +
-                        4.0*np.pi*dust.size[0]*dust.size[0]*
-                        dust._sumRho() *
-                        veld*veld*dust._calcDxa(vd=veld, vg=vel, 
-                        Tg=t, Td=td, gas=self) )
+                    dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t, Td=td, gas=self)
+                    fdrag = dust._calculateFdrag(vd=veld,
+                         vg=vel, Tg=t, Td=td, gas=self)
                 else:
-                    fourth = - (dust.numden[0]* (
-                        dust._calculateFdrag(vd=veld, 
-                        vg=vel, Tg=t, Td=td, rhogas=self._sumRho()) +
-                        4.0*np.pi*dust.size[0]*dust.size[0]*
-                        dust._sumRho() *
-                        veld*veld*dust._calcDxa(vd=veld, vg=vel, 
-                        Tg=t, Td=td,rhogas=self._sumRho(), Jrad=Jrad) ))
+                    dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t,
+                        Td=td,rhogas=self._sumRho(), Jrad=Jrad)
+                    fdrag = dust._calculateFdrag(vd=veld,
+                         vg=vel, Tg=t, Td=td, gas=self, Jrad = Jrad)
                 """"""
-                return first+second+third+fourth
+                fourth = ( (dust.numden[0]*dust.vel[0]*
+                    4.0*np.pi*dust._sumRho()*dust.size[0]*dust.size[0])/
+                    (self.mass[3]) )*dxa
+                fifth = - (dust.numden[0]* fdrag +
+                    4.0*np.pi*dust.size[0]*dust.size[0]*
+                    dust._sumRho() * veld*veld*dxa )
+                if np.abs(fourth) > 1e2:
+                    print '%2.5e %2.5e %2.5e %2.5e'%(vel, t, veld, td)
+                    print '%2.5e %2.5e %2.5e %2.5e'%(dust.numden[0],
+                         dust.vel[0], dust._sumRho(), dust.size[0])
+                    print '%2.5e %2.5e %2.5e %2.5e %2.5e'%(first,
+                        second, third, fourth, fifth)
+                    top = (dust.numden[0]*dust.vel[0]*
+                           4.0*np.pi*dust._sumRho()*dust.size[0]*dust.size[0])
+                    print '%2.5e %2.5e'%(dxa, self.mass[3])
+                    print
+            else:
+                fourth = 0.0
+                fifth = 0.0
+            return first+second+third+fourth+fifth
         else:
             return 0.0
         
@@ -158,44 +171,37 @@ class gasSpecs():
         """
         normrate = self._calculateR(t=t)
         if self.nspecs > 1:
-            if dust is None:
-                first = -2.0*normrate*(self.mass[0]*self.gamma[0]*kk*t +
-                    0.5*vel*vel*self.mass[0]+(kk*t/(self.mugas*mp))*
-                    self.mass[0])
-                second = normrate*(self.mass[1]*self.gamma[1]*kk*t +
-                    0.5*vel*vel*self.mass[1]+(kk*t/(self.mugas*mp))*
-                    self.mass[1])
-                third = 0.0
-                return first+second+third
-            elif (dust is not None):
-                first = -2.0*normrate*(self.mass[0]*
-                    self.gamma[0]*kk*t+0.5*vel*vel*self.mass[0]+
-                    (kk*t/(self.mugas*mp))*self.mass[0])
-                second = normrate*(self.mass[1]*
-                    self.gamma[1]*kk*t + 0.5*vel*vel*self.mass[1] 
-                    + (kk*t/(self.mugas*mp))*self.mass[1])
-                third = 0.0
-                #
-                # Dust stuffs below
-                #
+            first = -2.0*normrate*(self.mass[0]*self.gamma[0]*kk*t +
+                0.5*vel*vel*self.mass[0])
+            second = normrate*(self.mass[1]*self.gamma[1]*kk*t +
+                    0.5*vel*vel*self.mass[1])
+            third = 0.0
+            #
+            # Dust stuffs below
+            #
+            if dust is not None:
                 if Jrad is None:
-                    fourth = veld*dust.numden[0]*(3./2. *
-                        dust._calculateFdrag(vd=veld, vg=vel, 
-                        Tg=t, Td=td, gas=self) +
-                        2.0*np.pi*dust.size[0]*dust.size[0]*
-                        dust._sumRho()*veld*veld*dust._calcDxa(
-                        vd=veld, vg=vel, Tg=t,Td=td, gas=self) )
+                    dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t, Td=td, gas=self)
+                    fdrag = dust._calculateFdrag(vd=veld,
+                         vg=vel, Tg=t, Td=td, gas=self)
+                    dxtd = dust._calcDxTd(vd=veld, vg=vel, Tg=t,
+                        Td=td, gas=self)
                 else:
-                    fourth = veld*dust.numden[0]*(3./2. *
-                        dust._calculateFdrag(vd=veld, vg=vel, 
-                        Tg=t, Td=td, rhogas=self._sumRho() +
-                        2.0*np.pi*dust.size[0]*dust.size[0]*
-                        dust._sumRho()*veld*veld*dust._calcDxa(
-                        vd=veld, vg=vel, Tg=t,Td=td,
-                        rhogas=self._sumRho(), Jrad=Jrad) ) )
+                    dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t,
+                        Td=td,rhogas=self._sumRho(), Jrad=Jrad)
+                    fdrag = dust._calculateFdrag(vd=veld,
+                        vg=vel, Tg=t, Td=td, gas=self, Jrad = Jrad)
+                    dxtd = dust._calcDxTd(vd=veld, vg=vel, Tg=t,
+                      Td=td, gas=self, Jrad = Jrad)
                 """"""
-                dustmass = ( (4.0/3.0)*np.pi*dust._sumRho()*
-                    dust.size[0]**(3.) )
+                fourth = ((dust.numden[0]*dust.vel[0]*4.0*np.pi*
+                    dust._sumRho()*dust.size[0]*dust.size[0]*dxa)*(
+                    self.mass[3]*self.gamma[3]*kk*t +
+                    0.5*vel*vel*self.mass[3]))
+                fifth = veld*dust.numden[0]*(3./2. * fdrag +
+                    2.0*np.pi*dust.size[0]*dust.size[0]*
+                    dust._sumRho()*veld*veld*dxa)
+                dustmass = (4.0/3.0)*np.pi*dust._sumRho()* dust.size[0]**(3.)
                 #
                 # Calculate the heat capacity
                 #
@@ -204,24 +210,17 @@ class gasSpecs():
                 else:
                     Cpd = 1e7
                 """"""
-                if Jrad is None:
-                    fifth = (dust.numden[0]*dustmass*veld*Cpd* 
-                        dust._calcDxTd(vd=veld, vg=vel, Tg=t, Td=td, gas=self))
-                    sixth = (4.0*np.pi*dust.size[0]**(2.)*dust.numden[0]*
-                        Cpd*veld*td*dust._sumRho()*dust._calcDxa(vd=veld, 
-                        vg=vel, Tg=t, Td=td, gas=self) )
-                else:
-                    fifth = (dust.numden[0]*dustmass*veld*Cpd* 
-                        dust._calcDxTd(vd=veld, vg=vel, Tg=t, Td=td, 
-                        rhogas=self._sumRho(), Jrad=Jrad))
-                    sixth = (4.0*np.pi*dust.size[0]**(2.)*dust.numden[0]*
-                        Cpd*veld*td*dust._sumRho()*dust._calcDxa(vd=veld, 
-                        vg=vel, Tg=t, Td=td,rhogas=self._sumRho(), Jrad=Jrad) 
-                        )
-                """"""
-                return first+second+third+fourth+fifth+sixth
+                sixth = (dust.numden[0]*dustmass*veld*Cpd*dxtd)
+                seventh = (4.0*np.pi*dust.size[0]**(2.)*dust.numden[0]*
+                   Cpd*veld*td*dust._sumRho()*dxa )
+            else:
+                fourth = 0.0
+                fifth = 0.0
+                sixth = 0.0
+                seventh= 0.0
+            return first+second+third+fourth+fifth+sixth+seventh
         else:
-            return 0
+            return 0.0
         
     """"""
     def _calculateFreeEnergy(self, t=None):
