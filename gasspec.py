@@ -9,8 +9,10 @@ class gasSpecs():
     Constructor
     Destructor is not required in python
     """
-    def __init__(self, rho = 1e-9, nspecs=3):
+    def __init__(self, rho = 1e-9, vgas=6.5e5, tgas = 300., nspecs=3):
         self.rho = rho
+        self.vgas = vgas
+        self.tgas = tgas
         if nspecs > 0:
             self.nspecs = nspecs
         else:
@@ -75,11 +77,21 @@ class gasSpecs():
         self.numden=[a*n0/b for (a,b) in zip(self.specfrac,
                 self.mass)]
     """"""
-    def _updateGas(self, allns=None):
+    def _getGamma(self):
+        """
+            Return the total specific heats
+        """
+        top = sum([a*b for (a,b) in zip(self.gamma, self.numden)])
+        bottom = sum([(a-1.)*b for (a,b) in zip(self.gamma, self.numden)])
+        return top/bottom
+    """"""
+    def _updateGas(self, allns=None, tgas=None, vgas=None):
         """
         Update gas densities
         """
         self.numden = allns
+        self.tgas = tgas
+        self.vgas = vgas
     """"""
     def _calculateR(self, t=None):
         """

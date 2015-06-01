@@ -110,18 +110,6 @@ def vectorfield(x,w, p):
         f7 = fdrag/(mdust*vd) # Dust velocities change
         f8 = Dtd
         f9 = dxa
-#        if np.abs(f8) > 1e2:
-#            print 'weird...'
-#            print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
-#            print 'Masses: ', gas.mass, dust.mass
-#            print
-#            print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
-#            print 'ndust, vdust and Tdust: %2.5e  %2.5e  %d'%(nd, vd, td)
-#            print '%e %e  %e  %e'%(f6, f7, f8, f9)
-#            print
-#            print fdrag, mdust, nd/vd
-#            print w
-#            raise SystemExit
         if np.isnan(f6) or np.isnan(f7) or np.isnan(f8) or np.isnan(f9):
             print 'NAN is found!'
             print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
@@ -164,13 +152,6 @@ def vectorfield(x,w, p):
 #        raise SystemExit
     """"""
     f[(np.abs(f/w)<1e-15)] = 0.0
-#    #
-#    # Need to make sure that the change in v and t is not too much
-#    #
-#    if (np.abs(f1) > x1*1e5) or (np.abs(f2) > x2*1e5):
-#        f[0] = 0.0
-#        f[1] = 0.0
-#    """"""
     return f
 """"""
 

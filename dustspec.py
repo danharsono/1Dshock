@@ -168,7 +168,16 @@ class dustSpecs():
             #
             gam = gas.gamma[ispec]
             mass = gas.mass[ispec]
-            if vdg < 1e1:
+            if np.abs(s) > 1e2:
+                print vdg, s
+                print gas.numden[ispec]*gas.mass[ispec]* np.abs(vdg)*(
+                  self._calcqdust(Tg=Tg, s=s, Td=Td, gamma=gam, mass=mass))
+                tempqd = (1./8.)*gas.mass[ispec] * gas.numden[ispec]*np.abs(
+                    vdg)**(3.)
+                print tempqd
+                print
+                raise SystemExit
+            if np.abs(vdg) < 1e-3:
                 tempqd = (gam+1.)/(gam-1.) * (Tg - Td) * (np.sqrt(
                     (kk*kk*kk*Tg)/(8.*np.pi*mass*mass*mass)) *
                     gas.numden[ispec]*mass)

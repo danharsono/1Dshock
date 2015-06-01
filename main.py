@@ -52,11 +52,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Solve the whole shock
     # Pre-shock part
     #
-    xpre = np.logspace(np.log10(sizex), np.log10(4.0/5.0 * sizex),
-        np.int(numpoints*0.1))
-    xpre = xpre[::-1]
-    xpre = np.concatenate([np.logspace(-5, np.log10(1.0/5.0 * sizex),
-        np.int(numpoints*0.9)+2), xpre[:-1]])
+    xpre = np.logspace(-8, np.log10(sizex), numpoints)
     xpre = -xpre[::-1]
     xpre = xpre[:-1]
     #
@@ -66,9 +62,9 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     # Add the post shock
     #
-    xpost = -xpre[:-1]
+#    xpost = -xpre[:-1]
+    xpost = -xpre[-25:-1]
     xpre = np.concatenate((xpre, xpost[::-1]))
-#    xpre = xpre[xpre>=0.0]
     #
     # Solve this
     #
@@ -297,6 +293,6 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print '#### DONE ###'
     print
     #raise SystemExit
-    return sol0, [tau, Jrad]
+    return sol0, [tau, Jrad], vshock
 """"""
     

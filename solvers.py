@@ -3,6 +3,37 @@ from python.natconst import *
 from scipy.integrate import odeint, ode
 from progressbar import ProgressBar, Percentage, Bar
 from copy import deepcopy
+"""
+    ##################################################################
+    ##################################################################
+"""
+"""
+    Solving the Rankine Hugionot conditions 2
+"""
+def get_RHcondition2(u1=None, t1 = None, gas=None):
+    """
+        Given the initial conditions of the gas
+        Return the post shock conditions
+    """
+    #
+    # Find the mach number
+    #
+    gam = gas._getGamma()
+    M1 = gas._sumRho()*u1*u1/(gam*sum(gas.numden)*kk*t1)
+    print sum(gas.numden), gas._sumRho(), gam
+    print sum(gas.numden)*kk*t1
+    #
+    # Solve the densities, velocities and temperatures
+    #
+    rho2 = gas._sumRho()*( (gam+1.0)*M1/( (gam-1.0)*M1+2.) )
+    u2 = u1 * (gas._sumRho()/rho2)
+    t2 = t1 * ( (gam - 1.) * M1 + 2.)*(2.*gam*M1 - (gam-1.))/( (gam + 1.)*
+        (gam+1.)*M1)
+    print 'Density: %2.5e -->  %2.5e'%(gas._sumRho()/(2.0*mp), rho2/(2.0*mp))
+    print 'Temperature: %2.5e --> %2.5e'%(t1, t2)
+    print 'Velocity: %2.5e --> %2.5e'%(u1, u2)
+    return rho2, u2, t2
+""""""
 
 """
 Solving the Rankine Hugionot conditions
@@ -12,17 +43,19 @@ def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
     Given the initial conditions of the gas
     Return the post shock conditions
     """
+    #
     # solve for velocity after the shock front
     # Quadratic equation solver: ax^2 + bx + c = 0
-    print u1, P1, rho1
+    # print u1, P1, rho1
+    #
     gam1 = (gamma/(gamma-1.0))
     aa = (1.0/2.0) - gam1
     bb = (gam1*u1) + gam1*P1/(u1*rho1)
     cc = -(1.0/2.0 * u1*u1 + gam1 * P1/rho1)
-    
     discrim = bb*bb - 4.*aa*cc
-    
+    #
     # check the discriminant
+    #
     if discrim < 0:
         print 'This has no solution'
         raise ValueError
@@ -134,7 +167,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             #
             # Set the new inputs and then integrate
             #
-            dt = (x[ixrange+1]-x[ixrange])/5e1
+            dt = (x[ixrange+1]-x[ixrange])/1e1
             vode = ode(vectorfield).set_integrator('vode', atol=1e-8,
                 rtol=1e-12, order=5, method='bdf',nsteps=1e4,
                 first_step = dt*1e-9, with_jacobian=True)
@@ -185,9 +218,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
 #            raise SystemError
             print
         else:
-            dt = dtnow/10.
-            if x[ixrange] > 0:
-                debug=True
+            dt = dtnow/5.
             #
             # Define the steps criteria
             #
@@ -217,14 +248,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                     print 'NEGATIVE DUST'
                     raise SystemError
                 """"""
-#                print iiter
-#                if vode.t > 0:
-#                    if iiter > 3: raise SystemError
                 vode.integrate(vode.t+dt)
-#                print iiter, ixrange, vode.successful()
-#                print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
-#                print vode.y
-#                print
                 ierror = 0 # iteration for error keeping
                 while not vode.successful():
                     """
@@ -259,9 +283,6 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 #
                 # Update the dust and gas
                 #
-#                print 'UPDATING DUST AND GAS'
-#                print w0, w0[5]
-#                print
                 gas._updateGas(allns=[w0[2]/w0[0], w0[3]/w0[0], w0[4]/w0[0]])
                 dust._updateDust(allns=[w0[5]], size=w0[8])
                 p = [gas, dust, debug]
