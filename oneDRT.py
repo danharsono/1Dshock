@@ -70,7 +70,7 @@ def calc_tauall(sol=None, gas=None, dust=None):
     # calculate this
     kapp = np.array([getKap(a) for a in sol[:,2]]) # gas
     kapd = sol[:,6]*np.pi*(sol[:,9]*sol[:,9])*getEps(sol[:,9])
-    gasrho = np.sum(sol[:,[3,4,5]]*gas.mass, axis=1)
+    gasrho = np.sum(sol[:,[3,4,5,6]]*gas.mass, axis=1)
     dtau = (gasrho*kapp + kapd)*dx[1:]
     tau[-1] = 0.0
     for ix in xrange(dtau.shape[0]-2,-1,-1):

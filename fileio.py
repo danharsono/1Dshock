@@ -9,8 +9,7 @@ def readio():
 
 def readOut(fname='testout'):
     f = h5py.File("%s.hdf5"%(fname),"r")
-    dset = f['output']
-    return dset
+    return f
 """"""
 
 def writeOut(solutions=None, Jrad=None, vshock=None, fname='testout', ngas=3, ndust=1):
@@ -19,40 +18,43 @@ def writeOut(solutions=None, Jrad=None, vshock=None, fname='testout', ngas=3, nd
         solutions: x, vgas, tgas, nh, nh2, nhe, ndust, vdust, tdust, adust
 
     """
-    print solutions.shape
     grid = solutions[:,0]
     vgas = solutions[:,1]
     tgas = solutions[:,2]
-    ndust = solutions[:,6]
-    vdust = solutions[:,7]
-    tdust = solutions[:,8]
-    adust = solutions[:,9]
+    ndust = solutions[:,3+ngas]
+    vdust = solutions[:,4+ngas]
+    tdust = solutions[:,5+ngas]
+    adust = solutions[:,6+ngas]
     with h5py.File("%s.hdf5"%(fname), 'w') as fout:
-        dset = fout.create_dataset("output", solutions[:,3:6].shape, dtype='f')
-        dset[:,:] = solutions[:, 3:6]/vgas[:,np.newaxis]
+        dset1 = fout.create_dataset("grid", grid.shape, dtype='f')
+        dset1[:] = grid[:]
+        gas = solutions[:,3:3+ngas]/vgas[:,np.newaxis]
+        gas = np.insert(gas, 0, tgas, axis=1)
+        gas = np.insert(gas, 0, vgas, axis=1)
+        dset = fout.create_dataset("gas", gas.shape, dtype='f')
+        dset[:,:] = gas[:,:]
         #
         # write the grid out
         #
         dset.attrs['ngrid'] = grid.shape[0]
-        dset.attrs['x'] = grid
         #
         # Dust
         #
-        dset.attrs['ndust'] = ndust
-        dset.attrs['vdust'] = vdust
-        dset.attrs['tdust'] = tdust
-        dset.attrs['adust'] = adust
+        dust = np.array([vdust, tdust, ndust, adust])
+        dust = np.transpose(dust)
+        dset2 = fout.create_dataset("dust", dust.shape, dtype='f')
+        dset2[:,:] = dust[:,:]
         #
         # Other information
         #
         dset.attrs['vshock'] = vshock
-        dset.attrs['tgas'] = tgas
-        dset.attrs['vgas'] = vgas
         #
         # Radiation
         #
-        dset.attrs['tau'] = Jrad[0]
-        dset.attrs['Jrad'] = Jrad[1]
+        radiation = np.array([Jrad[0], Jrad[1][1]])
+        radiation =  np.transpose(radiation)
+        dset3 = fout.create_dataset("radiation", radiation.shape, dtype='f')
+        dset3[:,:] = radiation[:,:]
     """"""
     #
     # Done

@@ -52,7 +52,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Solve the whole shock
     # Pre-shock part
     #
-    xpre = np.logspace(-12, np.log10(sizex), numpoints)
+    xpre = np.logspace(-10, np.log10(sizex), numpoints)
     xpre = -xpre[::-1]
     xpre = xpre[:-1]
     #
@@ -62,8 +62,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     # Add the post shock
     #
-#    xpost = -xpre[:-1]
-    xpost = -xpre[-241:-1]
+    xpost = -xpre[20:-1]
     xpre = np.concatenate((xpre, xpost[::-1]))
     #
     # Solve this
@@ -76,9 +75,10 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print '  velocity:   %2.2f  km/s'%(sol0[-2][1]/1e5)
     print '  Pre shock T   :   %d     K   '%(sol0[-2][2])
     if ndust is not None:
-        print '  Dust Temperature: %d     K   '%(sol0[-2][8])
+        print '  Dust Temperature: %d     K   '%(sol0[-2][9])
     print '####################################################'
-    print 
+    print
+    print wpre[-1,:]
     #
     Tpre=sol0[0,2]
     Tpost=1500.0

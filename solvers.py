@@ -91,7 +91,7 @@ def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
 """
 HD Solver
 """
-def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-8, telerr = 1e-7):
+def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-10, telerr = 1e-10):
     """
     Call the solver with initial conditions v0 and t0
     """
@@ -104,7 +104,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
     # Starting VALUES
     #
     print w0
-    print ['%2.5e'%(a) for a in gas.numden]
+    print ['%8.5e'%(a) for a in gas.numden]
     print
     #
     # call the solver
@@ -168,9 +168,9 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             #
             # Set the new inputs and then integrate
             #
-            dt = (x[ixrange+1]-x[ixrange])/50.
-            vode = ode(vectorfield).set_integrator('vode', atol=1e-8,
-                rtol=1e-12, order=5, method='bdf',nsteps=1e4,
+            dt = (x[ixrange+1]-x[ixrange])/1e2
+            vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+                rtol=telerr, order=5, method='bdf',nsteps=1e6,
                 first_step = dt*1e-9, with_jacobian=True)
             w0 = [u2, t2]
             w0 = w0 + [a*u2 for a in gas.numden]
@@ -186,7 +186,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             iiter = 1
             while vode.successful() and (vode.t<x[ixrange+1]):
                 if (vode.t + dt) > x[ixrange+1]:
-                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-10, dt)
+                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-30, dt)
                 vode.integrate(vode.t+dt)
                 if not vode.successful():
                     raise SystemError
@@ -197,7 +197,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 tnow = vode.t
                 vode = ode(vectorfield).set_integrator('vode', atol=abserr,
                     rtol=telerr, order=5, method='bdf',nsteps=1e6,
-                    first_step = np.minimum(2e-8, dt/1e9),
+                    first_step = np.minimum(1e-15, dt/1e12),
                     with_jacobian=True)
                 #
                 # Update the dust and gas
@@ -217,12 +217,13 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             print vode.y
             print
         else:
-            dt = dtnow/5e1
+            dt = dtnow/1e2
             #
             # Define the steps criteria
             #
-            maxstep = dtnow/1e2
+            maxstep = dtnow/3e2
             minstep = np.abs(x[ixrange]*1e-12) # numerical stability
+            minstep = np.maximum(minstep, 1e-20)
             if x[ixrange] > 0:
                 debug = False
             #
@@ -241,7 +242,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             iiter = 1 # iteration stepping
             while vode.successful() and (vode.t<x[ixrange+1]):
                 if (vode.t + dt) > x[ixrange+1]:
-                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-10, dt)
+                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-30, dt)
                 if (dust.numden[0] < 0.0):
                     print iiter, ixrange, vode.successful()
                     print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
@@ -255,8 +256,10 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                     """
                         Change the step size again
                     """
-                    dt = dtnow/np.float(1e1+1e2*ierror)
+                    dt = dtnow/np.float(3e2+1e1*ierror)
                     dt = np.minimum(dt, minstep)
+                    p = [gas, dust, True]
+                    vode.set_initial_value(w0, tnow).set_f_params(p)
                     vode.integrate(vode.t+dt)
                     ierror+=1
                     print 'Warning! %d'%(ierror)
@@ -296,15 +299,15 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 # Update the step size
                 #
                 if iiter > 1:
-                    dt = dtnow/np.float(1e1 - iiter)
-                    dt = np.minimum(dt, dtnow/3.0) # set the maximum
+                    dt = dtnow/np.float(1e2 - iiter)
+                    dt = np.minimum(dt, dtnow/10.0) # set the maximum
             """"""
         """"""
         #
         # Update the w0 and x0
         #
         w0 = [a for a in vode.y]
-#        print ixrange, ['%2.5e'%(a) for a in w0]
+        print ixrange, ['%2.5e'%(a) for a in w0]
     """"""
     wsol1 = [vode.t]+w0
     wsol.append(wsol1)

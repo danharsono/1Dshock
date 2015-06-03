@@ -114,9 +114,6 @@ def vectorfield(x,w, p):
         if np.abs(f10) > 0.0:
             f9 = 0.0
             f10 = dxa
-        if np.abs(ad) <= 1e-5:
-            f9 = Dtd
-            f10 = 0.0
         if np.isnan(f7) or np.isnan(f8) or np.isnan(f9) or np.isnan(f10):
             print 'NAN is found!'
             print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
