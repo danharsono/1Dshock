@@ -60,23 +60,36 @@ def calc_tauall(sol=None, gas=None, dust=None):
     Calculate the optical depth
     dtau = alpha ds = rho kapp ds
     """
+    nspec = gas.nspecs
+    idust   = 2+nspec # where dust information starts
+    #
+    # Dust: ndust, vdust, tdust, adust
+    #
     x = np.array(sol[:,0])
     dtau = np.zeros(x.shape[0])
     tau = np.zeros(x.shape[0])
     dx = np.zeros(x.shape[0]+1)
     dx[0] = 0.5*(x[1]-x[0])
     dx[1:-1] = x[1:]-x[:-1]
-    
+    #
     # calculate this
+    # number densities are in terms of n * v
+    #
     kapp = np.array([getKap(a) for a in sol[:,2]]) # gas
-    kapd = sol[:,6]*np.pi*(sol[:,9]*sol[:,9])*getEps(sol[:,9])
-    gasrho = np.sum(sol[:,[3,4,5,6]]*gas.mass, axis=1)
+    kapd = sol[:,idust+1]*np.pi*(sol[:,idust+4]*sol[:,idust+4])*getEps(
+        sol[:,idust+4])/sol[:,idust+2]
+    gasrho = np.sum(sol[:,3:3+nspec]*gas.mass, axis=1)/sol[:,1]
     dtau = (gasrho*kapp + kapd)*dx[1:]
     tau[-1] = 0.0
     for ix in xrange(dtau.shape[0]-2,-1,-1):
         tau[ix] = tau[ix+1]+ dtau[ix+1]
     taumax = tau.max()
-    return taumax,tau, dtau
+    #
+    # calculate the source function
+    #
+    srcall = (gasrho*kapp*(ss/np.pi)*np.power(sol[:,2],4.) + kapd *
+              np.power(sol[:,idust+3], 4.) )/(gasrho*kapp + kapd)
+    return tau, srcall
 """"""
 
 def addJrad(tau, arrtau, temps, dtau, Jrad,ind):
@@ -89,44 +102,43 @@ def addJrad(tau, arrtau, temps, dtau, Jrad,ind):
     return Jrad
 """"""
 
-def calcJrad(Tpre, Tpost, tau, arrtau, dtau, taumax, ix=None, temps=None, sol=None, gas=None):
+def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
     """ 
     Calculate the mean itensity
     """
-    Ipre = (ss/np.pi)*Tpre**(4.0)
-    Ipost = (ss/np.pi)*Tpost**(4.0)
-    if tau < 1e-5: tau=1e-5
-    if expn(2.0,tau) < 1e-25:
-        Jrad = 0.5*Ipre*expn(2.0, taumax-tau)
-    else:
-        Jrad = 0.5*Ipre*expn(2.0, taumax-tau) + 0.5*Ipost*expn(2.0,tau)
-    """"""
-    # Add the all intermediate terms
-    #for ix in xrange(dtau.shape[0]-2, -1, -1):
-        #delttau = np.abs(arrtau[ix]-tau)
-        #if sol is None:
-            #if delttau < 1e-25:
-                #delttau = 1e-25
-            #Jrad += 0.5*( (ss/np.pi)*temps[ix]**(4.0)*
-                #expn(1,delttau)*dtau[ix])
-        #else:
-            #numdens = sol[ix,[3,4,5]]
-            #rhogas = sum([a*b for (a,b) in zip(numdens,     
-                #gas.mass)])
-            #Srcg = (rhogas*getKap(sol[ix,2])*(ss/np.pi)*
-                #sol[ix,2]**(4.))
-            #Srcd = (sol[ix,6]*np.pi*sol[ix,9]*sol[ix,9]*
-                #getEps(sol[ix,9])*(ss/np.pi)*sol[ix,8]**(4.))
-            #Src = (Srcg + Srcd)/(rhogas*getKap(sol[ix,2]) +
-                #np.pi*sol[ix,6]*sol[ix,9]*sol[ix,9]*
-                #getEps(sol[ix,9]))
-            ##Src = Srcg/(rhogas*getKap(sol[ix,2]))
-            #if delttau < 1e-25:
-                #delttau = 1e-25
-            #addjrad = 0.5*(Src * expn(1,delttau)*dtau[ix])
-            #if addjrad < 1e-20: addjrad=0.0
-            #Jrad += addjrad
-        #""""""
+    Ipre = (ss/np.pi)*np.power(Tpre, 4.)
+    Ipost = (ss/np.pi)*np.power(Tpost, 4.)
+    taumax = tau.max()
+    #
+    # Calculate Jrad
+    #
+    Jrad = np.zeros(tau.shape[0])
+    for ix in xrange(tau.shape[0]):
+        Jrad[ix] = srcall[ix]
+        #
+        # Add the other terms
+        #
+        Jrad[ix] += 0.5 * (Ipre - srcall[0])*expn(2.0, taumax-tau[ix])
+        Jrad[ix] += 0.5 * (Ipost - srcall[-1])*expn(2.0, tau[ix])
+        #
+        # Add the derivatives and contribution from all the other cells
+        #
+        if ix == 0:
+            Jrad[ix] += -0.5 * ((srcall[:-1]-srcall[1:])*expn(
+                2., tau[ix]-tau[:-1])).sum()
+        elif ix == tau.shape[0]-1:
+            Jrad[ix] += 0.5 * ((srcall[:-1]-srcall[1:])*expn(
+                2., np.abs(tau[ix]-tau[:-1]))).sum()
+        else:
+            """
+                Need to split the positive and negative
+            """
+            dumleft     = 0.5 * ((srcall[:ix]-srcall[1:ix+1]) *expn(
+                2., np.abs(tau[ix]-tau[:ix]))).sum()
+            dumright    = -0.5 * ((srcall[ix:-1]-srcall[ix+1:])*expn(
+                2., tau[ix]-tau[ix:-1])).sum()
+            Jrad[ix] += dumleft + dumright
+        """"""
     """"""
     return Jrad
 """"""

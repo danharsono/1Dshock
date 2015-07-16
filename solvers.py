@@ -307,7 +307,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
         # Update the w0 and x0
         #
         w0 = [a for a in vode.y]
-        print ixrange, ['%2.5e'%(a) for a in w0]
+#        print ixrange, ['%2.5e'%(a) for a in w0]
     """"""
     wsol1 = [vode.t]+w0
     wsol.append(wsol1)

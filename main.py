@@ -62,7 +62,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     # Add the post shock
     #
-    xpost = -xpre[20:-1]
+    xpost = -xpre[1:-1]
     xpre = np.concatenate((xpre, xpost[::-1]))
     #
     # Solve this
@@ -80,8 +80,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print
     print wpre[-1,:]
     #
-    Tpre=sol0[0,2]
-    Tpost=1500.0
+    Tpre=sol0[0,1]
+    Tpost=sol0[-1,1]
     #"""
     #Initialize the radiative transfer
       #- Calculate the Jrad
@@ -92,26 +92,25 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print
     from joblib import Parallel, delayed
     if nspecs is None:
-        taumax, tau, dtau = calc_tau(sol0[:,0], numden, mass, 
+        taumax, tau, dtau, srcall = calc_tau(sol0[:,0], numden, mass,
             sol0[:, 2])    
         Jrad = [Parallel(n_jobs=ncpu)(delayed(calcJrad)(Tpre, Tpost, 
             tau[ix], tau, dtau,taumax,temps=sol0[:,2]) for ix in 
             xrange(dtau.shape[0]))]
     else:
         if ndust is None: # no dust
-            taumax, tau, dtau = calc_tau(sol0[:,0], sum(gas.numden), 
-                gas.mugas*mp, sol0[:, 2])
-            Jrad = [Parallel(n_jobs=ncpu)(delayed(calcJrad)(Tpre, 
-                Tpost, tau[ix], tau, dtau, taumax, temps=sol0[:,2])
-                for ix in xrange(dtau.shape[0]))]
+            taumax, tau, dtau, srcall = calc_tauall(sol=sol0, gas=gas,
+                                                    dust=dust)
+            Jrad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall, tau=tau)
         else: # with dust
-            taumax, tau, dtau = calc_tauall(sol=sol0, gas=gas,
+            tau, srcall = calc_tauall(sol=sol0, gas=gas,
                 dust=dust)
-            Jrad = [Parallel(n_jobs=ncpu)(delayed(calcJrad)(Tpre, 
-                Tpost, tau[ix], tau, dtau, taumax, sol=sol0, gas=gas, 
-                ix=ix) for ix in xrange(dtau.shape[0]))]
-    Jrad = np.array(Jrad)
-    Jrad = np.array([sol0[:,0],Jrad[0,:]])
+            #
+            # Vectorize method as of Jul 2015
+            #
+            Jrad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall, tau=tau)
+        """"""
+    Jrad = np.array([sol0[:,0],Jrad[:]])
     """
     Start solving the HD equations with radiative transfer
     iterate this such that Tpost change a bit

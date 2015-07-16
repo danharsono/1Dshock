@@ -9,17 +9,22 @@ ndust = 1
 ngas = 4
 vshock=6.5e5
 tgas = 300.
-#solutions, Jrad, vshock = main.shock_main(sizex=8e10, numpoints=1e3,
-#    nspecs=ngas, ndust=ndust, v0=vshock, niter=0, ncpu=2, t0=tgas)
-##
-## Write out the solutions
-##
-#fileio.writeOut(solutions=solutions, Jrad=Jrad,
-#    vshock=vshock, ngas=ngas, ndust=ndust, fname='shockout')
+solutions, Jrad, vshock = main.shock_main(sizex=5e10, numpoints=8e2,
+   nspecs=ngas, ndust=ndust, v0=vshock, niter=0, ncpu=2, t0=tgas)
+#
+# Write out the solutions
+#
+fileio.writeOut(solutions=solutions, Jrad=Jrad,
+    vshock=vshock, ngas=ngas, ndust=ndust, fname='shockout')
 #
 # Read the output
 #
 sols = fileio.readOut(fname='shockout')
+#
+# Check the radiation
+#
+#from calcRadFlux import calcJrad
+#calcJrad(sols)
 #
 # position is relative to the shock front
 #
@@ -68,7 +73,6 @@ leg1.draw_frame(False)
 fig.savefig('shocktest.pdf', dpi=500)
 close()
 os.system('open shocktest.pdf')
-
 #
 # Number densities and chemistry
 #
@@ -99,7 +103,6 @@ ax0.grid(lw=0.5, color='0.6', ls=':', alpha=0.6)
 fig.savefig('numden.pdf', dpi=500)
 close()
 os.system('open numden.pdf')
-
 #
 # Radiation field and optical depth
 #
@@ -131,5 +134,5 @@ for t1 in ax1.get_yticklabels():
 
 fig.savefig('radiation.pdf', dpi=500)
 close()
-#os.system('okular radiation.pdf')
+os.system('open radiation.pdf')
 
