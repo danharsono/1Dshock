@@ -9,13 +9,13 @@ ndust = 1
 ngas = 4
 vshock=6.5e5
 tgas = 300.
-solutions, Jrad, vshock = main.shock_main(sizex=5e10, numpoints=8e2,
-   nspecs=ngas, ndust=ndust, v0=vshock, niter=0, ncpu=2, t0=tgas)
+solutions, Jrad, vshock = main.shock_main(sizex=1e10, numpoints=6e2,
+   nspecs=ngas, ndust=ndust, v0=vshock, niter=30, ncpu=2, t0=tgas)
 #
 # Write out the solutions
 #
-fileio.writeOut(solutions=solutions, Jrad=Jrad,
-    vshock=vshock, ngas=ngas, ndust=ndust, fname='shockout')
+#fileio.writeOut(solutions=solutions, Jrad=Jrad,
+#    vshock=vshock, ngas=ngas, ndust=ndust, fname='shockout')
 #
 # Read the output
 #
@@ -121,7 +121,7 @@ ax0.grid(lw=0.5, color='0.6', ls=':', alpha=0.6)
 ax1 = ax0.twinx()
 ax1.plot(x0, np.log10(sols['radiation'][:,1]), 'go', lw=1.2, ms=5)
 ax1 = fig_labs(ax=ax1, xlab=r'\textbf{\boldmath$t$ [h]}',
-    ylab=r'\boldmath$J_{\rm rad}$', fontsize=8, xlim=[-15, 10], 
+    ylab=r'\boldmath$J_{\rm rad}$', fontsize=8, xlim=[-25, 20],
     xform=r'\boldmath$%1.1f$', yform=r'\boldmath$%d$',xminloc=1.0,
     ylim=[-5,20.], yminloc=2.0)
 

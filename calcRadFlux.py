@@ -64,8 +64,8 @@ def calcJrad(sol):
     #
     # Source functions
     #
-    srcall = (galp*ss*np.power(gas[:,1],4.)+ dalp*ss*np.power(
-        dust[:,1], 4.))/(rhogas*kapp+dalp)
+    srcall = (galp*(ss/np.pi)*np.power(gas[:,1],4.)+
+        dalp*(ss/np.pi)*np.power(dust[:,1], 4.))/(rhogas*kapp+dalp)
     #
     # Calculate Jrad
     #
@@ -97,8 +97,9 @@ def calcJrad(sol):
             Jrad[ix] += dumleft + dumright
         """"""
     """"""
-    semilogy(grid,Jrad,'r-')
+    semilogy(grid, Jrad,'r-')
     semilogy(grid,(ss/np.pi)*np.power(gas[:,1],4.),'b--')
+    semilogy(grid,srcall,'k--')
     show()
     close()
     raise SystemExit

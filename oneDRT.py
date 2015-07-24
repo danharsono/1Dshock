@@ -1,6 +1,7 @@
 import numpy as np
 from python.natconst import *
 from scipy.special import expn
+from python.my_header import *
 #import multiprocessing
 
 """
@@ -77,7 +78,7 @@ def calc_tauall(sol=None, gas=None, dust=None):
     #
     kapp = np.array([getKap(a) for a in sol[:,2]]) # gas
     kapd = sol[:,idust+1]*np.pi*(sol[:,idust+4]*sol[:,idust+4])*getEps(
-        sol[:,idust+4])/sol[:,idust+2]
+        sol[:,idust+4])
     gasrho = np.sum(sol[:,3:3+nspec]*gas.mass, axis=1)/sol[:,1]
     dtau = (gasrho*kapp + kapd)*dx[1:]
     tau[-1] = 0.0
@@ -87,8 +88,25 @@ def calc_tauall(sol=None, gas=None, dust=None):
     #
     # calculate the source function
     #
-    srcall = (gasrho*kapp*(ss/np.pi)*np.power(sol[:,2],4.) + kapd *
-              np.power(sol[:,idust+3], 4.) )/(gasrho*kapp + kapd)
+    srcall = np.zeros(x.shape[0])
+    fmt = '%d %2.2e %2.2e %2.2e %2.2e %d %d %2.2e %2.3e'
+    for ix in xrange(x.shape[0]):
+        bottom = gasrho[ix]*kapp[ix] + kapd[ix]
+        top1    = gasrho[ix]*kapp[ix]*(ss/np.pi)*np.power(sol[ix,2],4.)
+        top2    = kapd[ix] * (ss/np.pi)*np.power(sol[ix,idust+3], 4.)
+        srcall[ix] = (top1+top2)/bottom
+#        print fmt%(ix, gasrho[ix], sol[ix,idust+1], bottom, top1+top2,
+#                   sol[ix,2], sol[ix, idust+3], srcall[ix],
+#                   np.power(sol[ix,2],4.))
+#        if ix == 10: raise SystemExit
+#    raise SystemExit
+#
+#    srcall = (gasrho*kapp*(ss/np.pi)*np.power(sol[:,2],4.) + kapd *
+#              np.power(sol[:,idust+3], 4.) )/(gasrho*kapp + kapd)
+#    semilogy(x,srcall,'ko')
+#    show()
+#    close()
+#    raise SystemExit
     return tau, srcall
 """"""
 

@@ -74,14 +74,17 @@ class gasSpecs():
         return sum([a*b*c for (a,b,c) in 
             zip(self.gamma,self.numden, self.mass)])
     """"""
-    def _updateRho(self, rho=None):
+    def _updateRho(self, rho=None, M1=None):
         """
-        Update rho
+            Update rho after shock
+            using the compression factor
         """
         self.rho = rho
-        n0 = self.rho/sum(self.specfrac)
-        self.numden=[a*n0/b for (a,b) in zip(self.specfrac,
-                self.mass)]
+        for ispec in xrange(self.nspecs):
+            print M1,((self.gamma[ispec]+1.0)*M1/(
+                  (self.gamma[ispec]-1.0)*M1+2.) )
+            self.numden[ispec] *= ((self.gamma[ispec]+1.0)*M1/(
+               (self.gamma[ispec]-1.0)*M1+2.) )
     """"""
     def _getGamma(self):
         """
@@ -131,15 +134,13 @@ class gasSpecs():
             # This is now dust stuff
             #
             if dust is not None:
+                fdrag = dust._calculateFdrag(vd=veld,
+                     vg=vel, Tg=t, Td=td, gas=self)
                 if Jrad is None:
                     dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t, Td=td, gas=self)
-                    fdrag = dust._calculateFdrag(vd=veld,
-                         vg=vel, Tg=t, Td=td, gas=self)
                 else:
                     dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t,
-                        Td=td,rhogas=self._sumRho(), Jrad=Jrad)
-                    fdrag = dust._calculateFdrag(vd=veld,
-                         vg=vel, Tg=t, Td=td, gas=self, Jrad = Jrad)
+                        Td=td,gas=self, Jrad=Jrad)
                 """"""
                 fourth = ( (dust.numden[0]*dust.vel[0]*
                     4.0*np.pi*dust._sumRho()*dust.size[0]*dust.size[0])/
@@ -180,17 +181,15 @@ class gasSpecs():
             # Dust stuffs below
             #
             if dust is not None:
+                fdrag = dust._calculateFdrag(vd=veld,
+                     vg=vel, Tg=t, Td=td, gas=self)
                 if Jrad is None:
                     dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t, Td=td, gas=self)
-                    fdrag = dust._calculateFdrag(vd=veld,
-                         vg=vel, Tg=t, Td=td, gas=self)
                     dxtd = dust._calcDxTd(vd=veld, vg=vel, Tg=t,
                         Td=td, gas=self)
                 else:
                     dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t,
-                        Td=td,rhogas=self._sumRho(), Jrad=Jrad)
-                    fdrag = dust._calculateFdrag(vd=veld,
-                        vg=vel, Tg=t, Td=td, gas=self, Jrad = Jrad)
+                        Td=td,gas=self, Jrad=Jrad)
                     dxtd = dust._calcDxTd(vd=veld, vg=vel, Tg=t,
                       Td=td, gas=self, Jrad = Jrad)
                 """"""
