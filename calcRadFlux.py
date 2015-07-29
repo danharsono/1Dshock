@@ -58,7 +58,7 @@ def calcJrad(sol):
     # Calculate the radiation field
     #
     Tpre    = gas[0,1]
-    Tpost   = gas[-1,1]
+    Tpost   = 1900.0
     Ipre    = (ss/np.pi)*Tpre**(4.)
     Ipost   = (ss/np.pi)*Tpost**(4.)
     #
@@ -70,13 +70,16 @@ def calcJrad(sol):
     # Calculate Jrad
     #
     Jrad = np.zeros(grid.shape[0])
+    Frad = np.zeros(grid.shape[0])
     for ix in xrange(grid.shape[0]):
         Jrad[ix] = srcall[ix]
         #
         # Add the other terms
         #
         Jrad[ix] += 0.5 * (Ipre - srcall[0])*expn(2.0, taumax-tau[ix])
+        Frad[ix] = 2.*np.pi*expn(3., taumax-tau[ix]) * (Ipre - srcall[0])
         Jrad[ix] += 0.5 * (Ipost - srcall[-1])*expn(2.0, tau[ix])
+        Frad[ix] -= 2.*np.pi*expn(3., tau[ix]) * (Ipost - srcall[-1])
         #
         # Use the derivative of the source functions
         #
@@ -96,14 +99,27 @@ def calcJrad(sol):
                 2., tau[ix]-tau[ix:-1])).sum()
             Jrad[ix] += dumleft + dumright
         """"""
+        #
+        # Add all the radiative fluxes
+        #
+        Frad[ix] += 2.*np.pi * ( (srcall[:-1]-srcall[1:]) *
+            expn(3., np.abs(tau[ix] - tau[:-1])) ).sum()
     """"""
     semilogy(grid, Jrad,'r-')
-    semilogy(grid,(ss/np.pi)*np.power(gas[:,1],4.),'b--')
+    semilogy(grid,(ss/np.pi)*np.power(gas[:,1],4.),'b-.')
     semilogy(grid,srcall,'k--')
     show()
     close()
-    raise SystemExit
 
+    print
+    print 'Tpre: %d  Tpost: %d'%(Tpre, Tpost)
+    print 'Frad: %2.3e -- %2.3e'%(Frad[0], Frad[-1])
+
+    semilogy(grid, np.abs(Frad),'r-')
+    ylim(1e-10, 1e10)
+    show()
+    close()
+    raise SystemExit
 
 """"""
 

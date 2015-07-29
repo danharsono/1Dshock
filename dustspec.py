@@ -183,17 +183,9 @@ class dustSpecs():
             gam = gas.gamma[ispec]
             mass = gas.mass[ispec]
             if np.abs(s) > 5e1:
-                print '%2.5e,  %2.5e'%(vd, vg)
-                print '%2.5e, %2.5e'%(vdg, s)
-                print gas.numden[ispec]*gas.mass[ispec]* np.abs(vdg)*(
-                  self._calcqdust(Tg=Tg, s=s, Td=Td, gamma=gam, mass=mass))
                 tempqd = (1./8.)*gas.mass[ispec] * gas.numden[ispec]*np.abs(
                     vdg)**(3.)
-                print tempqd
-                print 'POSITIVE gas... in Dxa'
-                print
-                raise SystemExit
-            if np.abs(vdg) < 1e-3:
+            elif np.abs(vdg) < 1e-3:
                 tempqd = (gam+1.)/(gam-1.) * (Tg - Td) * (np.sqrt(
                     (kk*kk*kk*Tg)/(8.*np.pi*mass*mass*mass)) *
                     gas.numden[ispec]*mass)

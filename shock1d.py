@@ -140,7 +140,7 @@ def vectorfield(x,w, p):
         print
         print 'DUST is negative!'
         raise SystemExit
-    if debug or np.abs(f1)>1e4 or np.abs(f2) > 1e4:
+    if debug or np.abs(f2) > 1e4:
         print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
         print 'Masses: ', gas.mass, dust.mass
         print varA, varB, varC, varD, varE, varF
@@ -301,7 +301,7 @@ def vectorfieldrt(x, w, p):
         print
         print 'DUST is negative!'
         raise SystemExit
-    if debug or np.abs(f1)>1e4 or np.abs(f2) > 1e4:
+    if debug or np.abs(f2) > 1e4:
         print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
         print 'Masses: ', gas.mass, dust.mass
         print varA, varB, varC, varD, varE, varF
@@ -317,6 +317,7 @@ def vectorfieldrt(x, w, p):
         print f
         print w
         print
+        raise SystemExit
         time.sleep(0.05)
     """"""
     return f

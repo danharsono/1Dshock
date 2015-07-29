@@ -122,7 +122,7 @@ def addJrad(tau, arrtau, temps, dtau, Jrad,ind):
 
 def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
     """ 
-    Calculate the mean itensity
+    Calculate the mean itensity  and radiative flux
     """
     Ipre = (ss/np.pi)*np.power(Tpre, 4.)
     Ipost = (ss/np.pi)*np.power(Tpost, 4.)
@@ -131,13 +131,16 @@ def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
     # Calculate Jrad
     #
     Jrad = np.zeros(tau.shape[0])
+    Frad = np.zeros(tau.shape[0])
     for ix in xrange(tau.shape[0]):
         Jrad[ix] = srcall[ix]
         #
         # Add the other terms
         #
         Jrad[ix] += 0.5 * (Ipre - srcall[0])*expn(2.0, taumax-tau[ix])
+        Frad[ix] = 2.*np.pi*expn(3., taumax-tau[ix]) * (Ipre - srcall[0])
         Jrad[ix] += 0.5 * (Ipost - srcall[-1])*expn(2.0, tau[ix])
+        Frad[ix] -= 2.*np.pi*expn(3., tau[ix]) * (Ipost - srcall[-1])
         #
         # Add the derivatives and contribution from all the other cells
         #
@@ -157,6 +160,11 @@ def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
                 2., tau[ix]-tau[ix:-1])).sum()
             Jrad[ix] += dumleft + dumright
         """"""
+        #
+        # Add all the radiative fluxes
+        #
+        Frad[ix] += 2.*np.pi * ( (srcall[:-1]-srcall[1:]) *
+            expn(3., np.abs(tau[ix] - tau[:-1])) ).sum()
     """"""
-    return Jrad
+    return Jrad, Frad
 """"""

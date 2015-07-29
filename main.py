@@ -52,9 +52,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Solve the whole shock
     # Pre-shock part
     #
-    xpre = np.logspace(-10, np.log10(sizex), numpoints)
-    xpre = -xpre[::-1]
-    xpre = xpre[:-1]
+    xpre = np.logspace(np.log10(sizex), -5, numpoints)
+    xpre = -xpre[:-1]
     #
     # Add the shock front
     #
@@ -62,8 +61,9 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     # Add the post shock
     #
-    xpost = -xpre[1:-1]
+    xpost = -xpre[:-1]
     xpre = np.concatenate((xpre, xpost[::-1]))
+    dx = xpre[1:]-xpre[:-1]
     #
     # Solve this
     #
@@ -82,8 +82,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print
     print wpre[-1,:]
     #
-    Tpre=sol0[0,-2]
-    Tpost=sol0[-1,-2]
+    Tpre    = sol0[0,-2]
+    Tpost   = np.minimum(sol0[-1,2], sol0[-1,-2])
     """
     Initialize the radiative transfer
       - Calculate the Jrad
@@ -91,28 +91,15 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     """
     print
     print 'Solving radiation field...'
+    tau, srcall = calc_tauall(sol=sol0, gas=gas,
+        dust=dust)
+    #
+    # Vectorize method as of Jul 2015
+    #
+    Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall, tau=tau)
     print 'Tpre: %d  --  Tpost: %d'%(Tpre, Tpost)
+    print 'Frad: %2.3e -- %2.3e'%(Frad[0], Frad[-1])
     print
-    from joblib import Parallel, delayed
-    if nspecs is None:
-        taumax, tau, dtau, srcall = calc_tau(sol0[:,0], numden, mass,
-            sol0[:, 2])    
-        Jrad = [Parallel(n_jobs=ncpu)(delayed(calcJrad)(Tpre, Tpost, 
-            tau[ix], tau, dtau,taumax,temps=sol0[:,2]) for ix in 
-            xrange(dtau.shape[0]))]
-    else:
-        if ndust is None: # no dust
-            taumax, tau, dtau, srcall = calc_tauall(sol=sol0, gas=gas,
-                                                    dust=dust)
-            Jrad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall, tau=tau)
-        else: # with dust
-            tau, srcall = calc_tauall(sol=sol0, gas=gas,
-                dust=dust)
-            #
-            # Vectorize method as of Jul 2015
-            #
-            Jrad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall, tau=tau)
-        """"""
     Jrad = np.array([sol0[:,0],Jrad[:]])
     """
     Start solving the HD equations with radiative transfer
@@ -167,7 +154,6 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
             print '  Dust size     :   %1.2f microns'%(sol0[-2][10])
         print '####################################################'
         print
-        print wpre[-1,:]
         """
             update the radiative transfer
             - Calculate the Jrad
@@ -175,7 +161,18 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         """
         Tpre=sol0[0, -2]
         oldtpost = Tpost
-        Tpost = 0.5*(Tpost + sol0[-1,-2])
+        #
+        # Check the Frad and calculate Tpost accordingly
+        #
+        changeTpost = np.abs(Tpost - np.power(np.abs(Frad[-1]/ss), 0.25))
+        if Frad[-1] > 0.0:
+            Tpost += changeTpost
+        else:
+            Tpost -= changeTpost
+        """"""
+        print 'Frad: %2.3e -- %2.3e'%(Frad[0], Frad[-1])
+        print 'Iter: %d -- Tpost: %d'%(iiter, Tpost)
+        print
         delT = np.abs(oldtpost - Tpost)/Tpost
         """"""
         print
@@ -199,16 +196,19 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
                 #
                 # Vectorize method as of Jul 2015
                 #
-                Jrad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall, tau=tau)
+                Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall,
+                    tau=tau)
             """"""
         Jrad = np.array([sol0[:,0],Jrad[:]])
         """"""
-        if delT < 1e-4: iiter = niter+1
+        if delT < 1e-4:
+            iiter = niter+1
+            break
         if Tpost > 1e5: break
     """"""
     print
     print '#### DONE ###'
     print
-    return sol0, [tau, Jrad], vshock
+    return sol0, [tau, Jrad], vshock, Frad
 """"""
     

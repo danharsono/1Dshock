@@ -9,13 +9,14 @@ ndust = 1
 ngas = 4
 vshock=6.5e5
 tgas = 300.
-solutions, Jrad, vshock = main.shock_main(sizex=1e10, numpoints=6e2,
-   nspecs=ngas, ndust=ndust, v0=vshock, niter=30, ncpu=2, t0=tgas)
+solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=5e2,
+   nspecs=ngas, ndust=ndust, v0=vshock, niter=10, ncpu=2, t0=tgas)
+#print vshock
 #
 # Write out the solutions
 #
-#fileio.writeOut(solutions=solutions, Jrad=Jrad,
-#    vshock=vshock, ngas=ngas, ndust=ndust, fname='shockout')
+fileio.writeOut(solutions=solutions, Jrad=Jrad,
+    vshock=vshock, ngas=ngas, ndust=ndust, fname='shockout')
 #
 # Read the output
 #
@@ -43,7 +44,7 @@ if ndust is not None:
         label=r'\boldmath$\upsilon_{\rm dust}$')
 ax0 = fig_labs(ax=ax0, xlab=r'\textbf{\boldmath$t$ [h]}',
     ylab=r'\boldmath$\upsilon$', fontsize=8,
-    xlim=[-15,10], ylim=[0.0,10.0], yminloc=0.5, xminloc=1.0,
+    xlim=[-15,15], ylim=[0.0,10.0], yminloc=0.5, xminloc=1.0,
     xform=r'\boldmath$%1.1f$', yform=r'\boldmath$%d$')
 for t1 in ax0.get_yticklabels():
     t1.set_fontsize(8)
@@ -57,7 +58,7 @@ if ndust is not None:
     ax1.plot(x0, sols['dust'][:,1], 'r-.', lw=1.2, alpha=0.6,
         label=r'\boldmath$T_{\rm dust}$')
 ax1 = fig_labs(ax=ax1, xlab=r'\textbf{\boldmath$t$ [h]}',
-    ylab=r'\boldmath$T_{\rm gas}$', fontsize=8, xlim=[-15, 10],
+    ylab=r'\boldmath$T_{\rm gas}$', fontsize=8, xlim=[-15, 15],
     ylim=[0, 3500.0],
     xform=r'\boldmath$%1.1f$', yform=r'\boldmath$%d$')
 
