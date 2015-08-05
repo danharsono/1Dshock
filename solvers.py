@@ -96,6 +96,10 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
         Call the solver with initial conditions v0 and t0
     """
     debug=False # turn this on for debugging
+    #
+    # TODO: inputs are generated from gas and dust properties
+    # INPUTS: w0 and p
+    #
     w0 = [v0, t0]
     w0 = w0 + [a*v0 for a in gas.numden]
     p = [gas, dust, debug]
@@ -219,12 +223,14 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             """
                 Update with adaptive stepping
             """
-            dt = np.minimum(dtnow/2e2, 5e7)
+            dt = dtnow/1e1
+            if dtnow < 500.0:
+                dt = dtnow + 1e-15
             #
             # Define the steps criteria
             #
-            maxstep = dtnow/5e1 # maximum stepping
-            minstep = np.abs(x[ixrange]*1e-5) # numerical stability
+            maxstep = np.maximum(dt/1e2, 1e-5) # maximum stepping
+            minstep = np.abs(x[ixrange]*1e-10) # numerical stability
             minstep = np.maximum(minstep, 1e-12)
             if x[ixrange] > 0:
                 debug = False
@@ -237,14 +243,15 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 with_jacobian=True)
             vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
             wsol1 = [vode.t]+w0
+            #
+            # Save the solution
+            #
             wsol.append(wsol1)
             #
             # Integrate with increasing dt starting from 5e-3
             #
             iiter = 1 # iteration stepping
             while vode.successful() and (vode.t<x[ixrange+1]):
-                if (vode.t + dt) > x[ixrange+1]:
-                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-30, dt)
                 if (dust.numden[0] < 0.0):
                     print iiter, ixrange, vode.successful()
                     print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
@@ -270,6 +277,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                     if ierror > 10: raise SystemError
                 """"""
                 #
+                # Update the gas and dust first and then create a new input
                 # Create the new ode solver from this point
                 #
                 w0 = vode.y
@@ -302,10 +310,20 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 #
                 if iiter > 1:
                     dt *= np.float(iiter)
-                    dt = np.minimum(dt, 5e7) # set the maximum
-                    dt = np.minimum(dt, maxstep) # set the minimum
+                    #
+                    # Define the steps criteria
+                    #
+                    maxstep = dt/5e1 # maximum stepping
+                    if (x[ixrange+1]-vode.t) < 1e1:
+                        dt = (x[ixrange+1]-vode.t) + 1e-15
+                        maxstep = dt/5e1
             """"""
         """"""
+        #
+        # Uncomment here to debug
+        #
+#        print vode.y[1], '%2.5e'%(gas._calculateR(t=vode.y[1])),
+#        print '%2.6e'%(gas._calculateFreeEnergy(t=vode.y[1]))
         #
         # Update the w0 and x0
         #
@@ -447,20 +465,20 @@ def solveHDrt(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8
             print vode.y
             print
         else:
-            dt = np.minimum(dtnow/2e2, 5e7)
+            dt = dtnow/5e1
+            if dtnow < 1e1:
+                dt = dtnow
             #
             # Define the steps criteria
             #
-            maxstep = dtnow/5e1
-            minstep = np.abs(x[ixrange]*1e-5) # numerical stability
-            minstep = np.maximum(minstep, 1e-10)
-            if x[ixrange] > 0:
-                debug = False
+            maxstep = np.maximum(dt/1e2, 1e-5)
+            minstep = np.abs(x[ixrange]*1e-10) # numerical stability
+            minstep = np.maximum(minstep, 1e-12)
             #
             # Setup the vode
             #
             vode = ode(vectorfieldrt).set_integrator('vode', atol=abserr,
-                rtol=telerr, order=5, method='bdf',nsteps=1e5,
+                rtol=telerr, order=5, method='bdf',nsteps=1e6,
                 first_step = minstep, max_step=maxstep,
                 with_jacobian=True)
             vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
@@ -471,8 +489,6 @@ def solveHDrt(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8
             #
             iiter = 1 # iteration stepping
             while vode.successful() and (vode.t<x[ixrange+1]):
-                if (vode.t + dt) > x[ixrange+1]:
-                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-30, dt)
                 if (dust.numden[0] < 0.0):
                     print iiter, ixrange, vode.successful()
                     print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
@@ -531,8 +547,13 @@ def solveHDrt(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8
                 #
                 if iiter > 1:
                     dt *= np.float(iiter)
-                    dt = np.minimum(dt, 5e7) # set the maximum
-                    dt = np.minimum(dt, maxstep) # set the minimum
+                    #
+                    # Define the steps criteria
+                    #
+                    maxstep = dt/1e2 # maximum stepping
+                    if (x[ixrange+1]-vode.t) < 1e1:
+                        dt = (x[ixrange+1]-vode.t) + 1e-15
+                        maxstep = dt/1e2
                 """"""
             """"""
         #

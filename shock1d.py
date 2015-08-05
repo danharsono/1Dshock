@@ -46,7 +46,7 @@ def vectorfield(x,w, p):
     #
     # Calculate the variable here
     #
-    varA = 2.0*gas._sumRho()*x1 - (kk*x2/x1)*sum(gas.numden)
+    varA = gas._sumRho()*x1 - (kk*x2/x1)*sum(gas.numden)
     varB = sum(gas.numden)*kk
     #
     # Variable C now has dust properties
@@ -56,11 +56,13 @@ def vectorfield(x,w, p):
     #
     # Calculate the variables for energy equation
     #
-    varD = (gas._sumEnergy()*kk*x2 +
-        gas._sumRho()*x1*x1*1.5 +
-        (kk*gas._sumRho()/(gas._getMugas()*mp)) * x2)
-    varE = (kk*gas._sumEnergy() +
-        (kk*gas._sumRho()/(gas._getMugas()*mp)))*x1
+    #    varD = (gas._sumEnergy()*kk*x2 +
+    #        gas._sumRho()*x1*x1*1.5 +
+    #        (kk*gas._sumRho()/(gas._getMugas()*mp)) * x2)
+    #    varE = (kk*gas._sumEnergy() +
+    #        (kk*gas._sumRho()/(gas._getMugas()*mp)))*x1
+    varD = x1*x1*gas._sumRho()
+    varE = kk*x1*gas._sumGammas()
     #
     # Calculate the variable F with the dust
     #
@@ -88,10 +90,9 @@ def vectorfield(x,w, p):
          gas=gas)
     #
     # The RHS matrix
-    #
     # Check few numbers to make sure these are not too large
-    #
     # or too small
+    #
     f1 = (varC*varE - varB*varF)/(varA*varE - varB*varD)
     f2 = (varA*varF - varD*varC)/(varA*varE - varB*varD)
     f3 = -2.0*gas._calculateR(t=x2)
@@ -111,9 +112,9 @@ def vectorfield(x,w, p):
         f8 = fdrag/(mdust*vd) # Dust velocities change
         f9 = Dtd
         f10 = dxa
-        if np.abs(f10) > 0.0:
-            f9 = 0.0
-            f10 = dxa
+#        if np.abs(f10) > 0.0:
+#            f9 = 0.0
+#            f10 = dxa
         if np.isnan(f7) or np.isnan(f8) or np.isnan(f9) or np.isnan(f10):
             print 'NAN is found!'
             print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
@@ -127,6 +128,23 @@ def vectorfield(x,w, p):
             print w
             raise SystemExit
     """"""
+    """
+        Limit the changes with respect to values to 1e-15
+        f1 -> vgas
+        f2 -> tgas
+        f3 -- f6 -> number densities
+        rest -> dust
+    """
+    if np.abs(f1/x1) < 1e-15: f1 = 0.0
+    if np.abs(f2/x2) < 1e-15: f2 = 0.0
+    if np.abs(f3/n1) < 1e-15: f3 = 0.0
+    if np.abs(f4/n2) < 1e-15: f4 = 0.0
+    if np.abs(f5/n3) < 1e-15: f5 = 0.0
+    if (n4 > 1e-15 and (np.abs(f6/n4) < 1e-15)): f6 = 0.0
+    if np.abs(f7/nd) < 1e-15: f7 = 0.0
+    if np.abs(f8/vd) < 1e-15: f8 = 0.0
+    if np.abs(f9/td) < 1e-15: f9 = 0.0
+    if np.abs(f10/ad) < 1e-15: f10 = 0.0
     f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9, f10])
     if nd < 0.0:
         print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
@@ -286,7 +304,22 @@ def vectorfieldrt(x, w, p):
         print w
         print
         raise SystemExit
-
+    """
+        Check if gas number densities change by quite a lot
+    """
+    if np.abs(f1/x1) < 1e-15: f1 = 0.0
+    if np.abs(f2/x2) < 1e-15: f2 = 0.0
+    if np.abs(f3/n1) < 1e-15: f3 = 0.0
+    if np.abs(f4/n2) < 1e-15: f4 = 0.0
+    if np.abs(f5/n3) < 1e-15: f5 = 0.0
+    if (n4 > 1e-15 and (np.abs(f6/n4) < 1e-15)): f6 = 0.0
+    if np.abs(f7/nd) < 1e-15: f7 = 0.0
+    if np.abs(f8/vd) < 1e-15: f8 = 0.0
+    if np.abs(f9/td) < 1e-15: f9 = 0.0
+    if np.abs(f10/ad) < 1e-15: f10 = 0.0
+    """
+        Limit the changes with respect to original value
+    """
     f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9, f10])
     """ Do something below here """
     if nd < 1e-19:
@@ -301,7 +334,7 @@ def vectorfieldrt(x, w, p):
         print
         print 'DUST is negative!'
         raise SystemExit
-    if debug or np.abs(f2) > 1e4:
+    if debug:
         print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
         print 'Masses: ', gas.mass, dust.mass
         print varA, varB, varC, varD, varE, varF

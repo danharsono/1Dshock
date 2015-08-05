@@ -12,7 +12,7 @@ from progressbar import ProgressBar, Percentage, Bar
 The main part of the shock code
 """
 
-def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, mass=2.0*mp, v0=6e5, t0=300., sizex=5.0, numpoints=1e5, mugas=2.8, dustfrac=0.005, mdust=3.3, ncpu=3, niter=1):
+def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, mass=2.0*mp, v0=6e5, t0=300., sizex=5.0, numpoints=1e5, mugas=2.8, dustfrac=0.005, mdust=3.3, ncpu=3, niter=1, restart = False):
     """
     The main part of the shock code
     Here:
@@ -52,7 +52,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Solve the whole shock
     # Pre-shock part
     #
-    xpre = np.logspace(np.log10(sizex), -5, numpoints)
+    xpre = np.logspace(np.log10(sizex), -8, numpoints)
     xpre = -xpre[:-1]
     #
     # Add the shock front
@@ -67,13 +67,15 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     # Solve this
     #
-    wpre, vshock = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0)
+    if not restart:
+        wpre, vshock = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0,
+            abserr=1e-13, telerr=1e-12)
     sol0 = wpre
     print
     print '####################################################'
     print '  Condition at the end      '
     print '  velocity:   %2.2f  km/s'%(sol0[-2][1]/1e5)
-    print '  Pre shock T   :   %d     K   '%(sol0[-2][2])
+    print '  Gas temperature   :   %d     K   '%(sol0[-2][2])
     if ndust is not None:
         print '  Dust Temperature: %d     K   '%(sol0[-2][9])
         print '  Dust Densities: %1.3e   cm^_3'%(sol0[-1][7])
@@ -141,7 +143,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         # Solve this
         #
         wpre, vshock = solveHDrt(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0,
-                 Jrad=Jrad)
+                 Jrad=Jrad, abserr=1e-13, telerr=1e-12)
         sol0 = wpre
         print
         print '####################################################'

@@ -134,22 +134,27 @@ def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
     Frad = np.zeros(tau.shape[0])
     for ix in xrange(tau.shape[0]):
         Jrad[ix] = srcall[ix]
+        Frad[ix] = 2. * srcall[ix]
         #
         # Add the other terms
         #
         Jrad[ix] += 0.5 * (Ipre - srcall[0])*expn(2.0, taumax-tau[ix])
-        Frad[ix] = 2.*np.pi*expn(3., taumax-tau[ix]) * (Ipre - srcall[0])
+        Frad[ix] = 2.*expn(3., taumax-tau[ix]) * (Ipre - srcall[0])
         Jrad[ix] += 0.5 * (Ipost - srcall[-1])*expn(2.0, tau[ix])
-        Frad[ix] -= 2.*np.pi*expn(3., tau[ix]) * (Ipost - srcall[-1])
+        Frad[ix] -= 2.*expn(3., tau[ix]) * (Ipost - srcall[-1])
         #
-        # Add the derivatives and contribution from all the other cells
+        # Use the derivative of the source functions
         #
         if ix == 0:
             Jrad[ix] += -0.5 * ((srcall[:-1]-srcall[1:])*expn(
                 2., tau[ix]-tau[:-1])).sum()
+            Frad[ix] += 2.0 * ((srcall[:-1]-srcall[1:])*expn(
+                3., tau[ix]-tau[:-1])).sum()
         elif ix == tau.shape[0]-1:
             Jrad[ix] += 0.5 * ((srcall[:-1]-srcall[1:])*expn(
                 2., np.abs(tau[ix]-tau[:-1]))).sum()
+            Frad[ix] += 2. * ((srcall[:-1]-srcall[1:])*expn(
+                3., np.abs(tau[ix]-tau[:-1]))).sum()
         else:
             """
                 Need to split the positive and negative
@@ -159,12 +164,15 @@ def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
             dumright    = -0.5 * ((srcall[ix:-1]-srcall[ix+1:])*expn(
                 2., tau[ix]-tau[ix:-1])).sum()
             Jrad[ix] += dumleft + dumright
+            #
+            # Frad
+            #
+            dumleft     = 2. * ((srcall[:ix]-srcall[1:ix+1]) *expn(
+                3., np.abs(tau[ix]-tau[:ix]))).sum()
+            dumright    = 2. * ((srcall[ix:-1]-srcall[ix+1:])*expn(
+                3., tau[ix]-tau[ix:-1])).sum()
+            Frad[ix] += dumleft + dumright
         """"""
-        #
-        # Add all the radiative fluxes
-        #
-        Frad[ix] += 2.*np.pi * ( (srcall[:-1]-srcall[1:]) *
-            expn(3., np.abs(tau[ix] - tau[:-1])) ).sum()
     """"""
     return Jrad, Frad
 """"""

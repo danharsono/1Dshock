@@ -74,6 +74,9 @@ class gasSpecs():
         return sum([a*b*c for (a,b,c) in 
             zip(self.gamma,self.numden, self.mass)])
     """"""
+    def _sumGammas(self):
+        return sum([a*b for (a,b) in zip(self.numden, self.gamma)])
+    """"""
     def _updateRho(self, rho=None, M1=None):
         """
             Update rho after shock
@@ -110,9 +113,9 @@ class gasSpecs():
         per unit volume
         """
         rate1 = 8.72e-33*(t/300.0)**(-0.6) # cm^6 per sec
-        rate2 = 1.83e-31*(t/300.0)**(-0.6)
-        rate3 = 1.50e-9*np.exp(-46350./t)**(1.0)
-        rate4 = 3.75e-8*(t/300.0)**(-0.6)*np.exp(-53280./t)
+        rate2 = 1.83e-31*(t/300.0)**(-1)
+        rate3 = 1.50e-9*np.exp(-46350./t)
+        rate4 = 3.75e-8*(t/300.0)**(-0.5)*np.exp(-53280./t)
         if self.nspecs > 1:
             totrate = (self.numden[0]**(2.)*(rate1*self.numden[1] + 
                 rate2*self.numden[0]) - self.numden[1]*(rate3*
@@ -124,11 +127,12 @@ class gasSpecs():
     def _calculateVarC(self, vel=None, t=None, veld=None, td=None, dust=None, Jrad=None):
         """
         Calculate the right hand side of the momentum equation
+        - Sign error corrected: Aug 3 2015
         """
         normrate = self._calculateR(t=t)
         if self.nspecs > 1:
-            first = 2.0*normrate*(vel*self.mass[0]+(kk*t/vel))
-            second = -normrate*(vel*self.mass[1]+(kk*t/vel))
+            first = -2.0*normrate*(vel*self.mass[0]+(kk*t/vel))
+            second = normrate*(vel*self.mass[1]+(kk*t/vel))
             third = 0.0
             #
             # This is now dust stuff
@@ -136,28 +140,18 @@ class gasSpecs():
             if dust is not None:
                 fdrag = dust._calculateFdrag(vd=veld,
                      vg=vel, Tg=t, Td=td, gas=self)
-                if Jrad is None:
-                    dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t, Td=td, gas=self)
-                else:
-                    dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t,
-                        Td=td,gas=self, Jrad=Jrad)
+                dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t, Td=td,gas=self,
+                    Jrad=Jrad)
                 """"""
-                fourth = ( (dust.numden[0]*dust.vel[0]*
+                """
+                    This should be formation of SiO and the momentum
+                """
+                fourth = - ( (dust.numden[0]*dust.vel[0]*
                     4.0*np.pi*dust._sumRho()*dust.size[0]*dust.size[0])/
-                    (self.mass[3]) )*dxa
-                fifth = - (dust.numden[0]* fdrag +
+                    (self.mass[3]) )*dxa * (vel*self.mass[2] + (kk*t/vel))
+                fifth = (dust.numden[0]* fdrag +
                     4.0*np.pi*dust.size[0]*dust.size[0]*
                     dust._sumRho() * veld*veld*dxa )
-                if np.abs(fourth) > 1e2:
-                    print '%2.5e %2.5e %2.5e %2.5e'%(vel, t, veld, td)
-                    print '%2.5e %2.5e %2.5e %2.5e'%(dust.numden[0],
-                         dust.vel[0], dust._sumRho(), dust.size[0])
-                    print '%2.5e %2.5e %2.5e %2.5e %2.5e'%(first,
-                        second, third, fourth, fifth)
-                    top = (dust.numden[0]*dust.vel[0]*
-                           4.0*np.pi*dust._sumRho()*dust.size[0]*dust.size[0])
-                    print '%2.5e %2.5e'%(dxa, self.mass[3])
-                    print
             else:
                 fourth = 0.0
                 fifth = 0.0
@@ -175,7 +169,7 @@ class gasSpecs():
             first = -2.0*normrate*(self.mass[0]*self.gamma[0]*kk*t +
                 0.5*vel*vel*self.mass[0])
             second = normrate*(self.mass[1]*self.gamma[1]*kk*t +
-                    0.5*vel*vel*self.mass[1])
+                0.5*vel*vel*self.mass[1])
             third = 0.0
             #
             # Dust stuffs below
@@ -183,21 +177,16 @@ class gasSpecs():
             if dust is not None:
                 fdrag = dust._calculateFdrag(vd=veld,
                      vg=vel, Tg=t, Td=td, gas=self)
-                if Jrad is None:
-                    dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t, Td=td, gas=self)
-                    dxtd = dust._calcDxTd(vd=veld, vg=vel, Tg=t,
-                        Td=td, gas=self)
-                else:
-                    dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t,
-                        Td=td,gas=self, Jrad=Jrad)
-                    dxtd = dust._calcDxTd(vd=veld, vg=vel, Tg=t,
-                      Td=td, gas=self, Jrad = Jrad)
+                dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t,
+                    Td=td,gas=self, Jrad=Jrad)
+                dxtd = dust._calcDxTd(vd=veld, vg=vel, Tg=t,
+                    Td=td, gas=self, Jrad = Jrad)
                 """"""
                 fourth = ((dust.numden[0]*dust.vel[0]*4.0*np.pi*
                     dust._sumRho()*dust.size[0]*dust.size[0]*dxa)*(
                     self.mass[3]*self.gamma[3]*kk*t +
                     0.5*vel*vel*self.mass[3]))
-                fifth = veld*dust.numden[0]*(3./2. * fdrag +
+                fifth = veld*dust.numden[0]*(fdrag +
                     2.0*np.pi*dust.size[0]*dust.size[0]*
                     dust._sumRho()*veld*veld*dxa)
                 dustmass = (4.0/3.0)*np.pi*dust._sumRho()* dust.size[0]**(3.)
