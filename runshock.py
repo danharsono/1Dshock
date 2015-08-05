@@ -9,8 +9,8 @@ ndust = 1
 ngas = 4
 vshock=6.5e5
 tgas = 300.
-solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=5e2,
-   nspecs=ngas, ndust=ndust, v0=vshock, niter=3, ncpu=0, t0=tgas, restart=False)
+solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=2e3,
+   nspecs=ngas, ndust=ndust, v0=vshock, niter=15, ncpu=0, t0=tgas, restart=False)
 #print vshock
 #
 # Write out the solutions
@@ -34,7 +34,7 @@ x0 = x0/3600.0
 #
 # Plot these
 #
-xlims = [-25, 50]
+xlims = [-15, 15]
 fig, ax0 = subplots(1,1, figsize=[aaonecol, aaonecol])
 subplots_adjust(left=0.15, right=0.8, top=0.98, bottom=0.12)
 

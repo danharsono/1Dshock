@@ -12,15 +12,22 @@ The 1D radiative transfer module: Plane parallel
 Get the planck mean opacities
 """
 def getKap(temp=None):
-    if (temp < 1000):
-        return 5.0
-    elif (temp < 0):
-        print 'Negative Temperature!'
-        return 1.0
-    elif ( (temp >1000.) and (temp < 3000.)):
-        return 0.5
-    else:
-        return 0.05
+    """
+        Update: Aug 2015 - Use Semenov planck opacities
+    """
+#    if (temp < 1000):
+#        return 5.0
+#    elif (temp < 0):
+#        print 'Negative Temperature!'
+#        return 1.0
+#    elif ( (temp >1000.) and (temp < 3000.)):
+#        return 0.5
+#    else:
+#        return 0.05
+    data = np.genfromtxt('planckOpacs.data')
+    logT = np.log10(data[:,0])
+    logK = np.log10(data[:,1])
+    return 10.0**(np.interp(temp, logT, logK)
 """"""
 
 def calc_tau(x, numden, mass, temps):

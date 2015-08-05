@@ -69,7 +69,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     #
     if not restart:
         wpre, vshock = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0,
-            abserr=1e-13, telerr=1e-12)
+            abserr=1e-6, telerr=1e-8)
     sol0 = wpre
     print
     print '####################################################'
@@ -143,7 +143,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         # Solve this
         #
         wpre, vshock = solveHDrt(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0,
-                 Jrad=Jrad, abserr=1e-13, telerr=1e-12)
+                 Jrad=Jrad, abserr=1e-6, telerr=1e-8)
         sol0 = wpre
         print
         print '####################################################'
@@ -166,14 +166,18 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         #
         # Check the Frad and calculate Tpost accordingly
         #
-        changeTpost = np.abs(Tpost - np.power(np.abs(Frad[-1]/ss), 0.25))
-        if Frad[-1] > 0.0:
+        if np.abs(Frad[0]) > np.abs(Frad[-1]):
+            corrFrad = Frad[0]
+        else:
+            corrFrad = Frad[-1]
+        changeTpost = np.abs(np.power(np.abs(corrFrad/ss), 0.25))/2.
+        if corrFrad > 0.0:
             Tpost += changeTpost
         else:
             Tpost -= changeTpost
         """"""
         print 'Frad: %2.3e -- %2.3e'%(Frad[0], Frad[-1])
-        print 'Iter: %d -- Tpost: %d'%(iiter, Tpost)
+        print 'Iter: %d -- Tpost: %d %2.3e'%(iiter, Tpost, changeTpost)
         print
         delT = np.abs(oldtpost - Tpost)/Tpost
         """"""

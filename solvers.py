@@ -173,7 +173,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             #
             dt = (x[ixrange+1]-x[ixrange])/5e1
             vode = ode(vectorfield).set_integrator('vode', atol=abserr,
-                rtol=telerr, order=5, method='bdf',nsteps=1e6,
+                rtol=telerr, order=5, method='bdf',nsteps=1e3,
                 first_step = dt*1e-9, with_jacobian=True)
             w0 = [u2, t2]
             w0 = w0 + [a*u2 for a in gas.numden]
@@ -415,7 +415,7 @@ def solveHDrt(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8
             dtnow = (x[ixrange+1]-x[ixrange])
             dt = dtnow/5e1
             vode = ode(vectorfieldrt).set_integrator('vode', atol=abserr,
-                rtol=telerr, order=5, method='bdf',nsteps=1e6,
+                rtol=telerr, order=5, method='bdf',nsteps=1e5,
                 first_step = dt*1e-9, with_jacobian=True)
             w0 = [u2, t2]
             w0 = w0 + [a*u2 for a in gas.numden]
@@ -465,7 +465,7 @@ def solveHDrt(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8
             print vode.y
             print
         else:
-            dt = dtnow/5e1
+            dt = dtnow/1e2
             if dtnow < 1e1:
                 dt = dtnow
             #
@@ -478,7 +478,7 @@ def solveHDrt(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8
             # Setup the vode
             #
             vode = ode(vectorfieldrt).set_integrator('vode', atol=abserr,
-                rtol=telerr, order=5, method='bdf',nsteps=1e6,
+                rtol=telerr, order=5, method='bdf',nsteps=1e5,
                 first_step = minstep, max_step=maxstep,
                 with_jacobian=True)
             vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
