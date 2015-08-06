@@ -210,11 +210,13 @@ def vectorfieldrt(x, w, p):
     #
     # Calculate the variables for energy equation
     #
-    varD = (gas._sumEnergy()*kk*x2 + 
-        gas._sumRho()*x1*x1*1.5 + 
-        (kk*gas._sumRho()/(gas.mugas*mp)) * x2)
-    varE = (kk*gas._sumEnergy() +
-        (kk*gas._sumRho()/(gas.mugas*mp)))*x1
+    #    varD = (gas._sumEnergy()*kk*x2 +
+    #        gas._sumRho()*x1*x1*1.5 + 
+    #        (kk*gas._sumRho()/(gas.mugas*mp)) * x2)
+    #    varE = (kk*gas._sumEnergy() +
+    #        (kk*gas._sumRho()/(gas.mugas*mp)))*x1
+    varD = x1*x1*gas._sumRho()
+    varE = kk*x1*gas._sumGammas()
     #
     # Calculate the variable F with the dust
     #

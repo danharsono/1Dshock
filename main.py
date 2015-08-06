@@ -176,10 +176,11 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         else:
             Tpost -= changeTpost
         """"""
-        print 'Frad: %2.3e -- %2.3e'%(Frad[0], Frad[-1])
-        print 'Iter: %d -- Tpost: %d %2.3e'%(iiter, Tpost, changeTpost)
-        print
         delT = np.abs(oldtpost - Tpost)/Tpost
+        print 'Frad: %2.3e -- %2.3e'%(Frad[0], Frad[-1])
+        print 'Iter: %d -- Tpost: %d %2.3e %2.3e'%(iiter, Tpost, changeTpost,
+            delT)
+        print
         """"""
         print
         print 'Solving radiation field...'

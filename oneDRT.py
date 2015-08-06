@@ -27,7 +27,7 @@ def getKap(temp=None):
     data = np.genfromtxt('planckOpacs.data')
     logT = np.log10(data[:,0])
     logK = np.log10(data[:,1])
-    return 10.0**(np.interp(temp, logT, logK)
+    return 10.0**(np.interp(temp, logT, logK))
 """"""
 
 def calc_tau(x, numden, mass, temps):
