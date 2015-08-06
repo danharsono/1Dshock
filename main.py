@@ -76,13 +76,13 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print '  Condition at the end      '
     print '  velocity:   %2.2f  km/s'%(sol0[-2][1]/1e5)
     print '  Gas temperature   :   %d     K   '%(sol0[-2][2])
+    print '  Postshock n   : 1E%2.1f  cm-3'%(np.log10(gas._sumRho()))
     if ndust is not None:
         print '  Dust Temperature: %d     K   '%(sol0[-2][9])
-        print '  Dust Densities: %1.3e   cm^_3'%(sol0[-1][7])
+        print '  Dust Densities: %1.3e   cm^-3'%(sol0[-1][7])
         print '  Dust size     :   %1.2f microns'%(sol0[-2][10])
     print '####################################################'
     print
-    print wpre[-1,:]
     #
     Tpre    = sol0[0,-2]
     Tpost   = np.minimum(sol0[-1,2], sol0[-1,-2])
@@ -149,10 +149,11 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         print '####################################################'
         print '  Condition at the end      '
         print '  velocity:   %2.2f  km/s'%(sol0[-2][1]/1e5)
-        print '  Pre shock T   :   %d     K   '%(sol0[-2][2])
+        print '  Gas temperature   :   %d     K   '%(sol0[-2][2])
+        print '  Postshock n   : 1E%2.1f  cm-3'%(np.log10(gas._sumRho()))
         if ndust is not None:
             print '  Dust Temperature: %d     K   '%(sol0[-2][9])
-            print '  Dust Densities: %1.3e   cm^_3'%(sol0[-1][7])
+            print '  Dust Densities: %1.3e   cm^-3'%(sol0[-1][7])
             print '  Dust size     :   %1.2f microns'%(sol0[-2][10])
         print '####################################################'
         print
@@ -170,7 +171,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
             corrFrad = Frad[0]
         else:
             corrFrad = Frad[-1]
-        changeTpost = np.abs(np.power(np.abs(corrFrad/ss), 0.25))/2.
+        changeTpost = np.minimum(np.abs(np.power(np.abs(corrFrad/ss), 0.25))
+            /4., 25.0)
         if corrFrad > 0.0:
             Tpost += changeTpost
         else:
