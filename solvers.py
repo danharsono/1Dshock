@@ -7,6 +7,10 @@ from copy import deepcopy
     ##################################################################
     ##################################################################
 """
+#
+# Global absolute error
+#
+glbabserr = [1.0, 1e-2, 0.1, 0.1, 0.1, 0.1, 1e-12, 1.0, 1e-2, 1e-8]
 """
     Solving the Rankine Hugionot conditions 2
 """
@@ -91,7 +95,7 @@ def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
 """
 HD Solver
 """
-def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, grid=None, t0 = None, tdust=None, vdust=None, dv = 0.0, dT = 0.0, gamma=3.0/2.0, abserr=1e-10, telerr = 1e-10):
+def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jrad = None, abserr=1e-10, telerr = 1e-10):
     """
         Call the solver with initial conditions v0 and t0
     """
@@ -102,12 +106,15 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
     #
     w0 = [v0, t0]
     w0 = w0 + [a*v0 for a in gas.numden]
-    p = [gas, dust, debug]
+    if haveJ:
+        p  = [gas, dust, Jrad, True, debug]
+    else:
+        p  = [gas, dust, None, False, debug]
     w0 = w0 + [dust.numden[0], v0, t0, dust.size[0]]
     #
     # Starting VALUES
     #
-    print w0
+    print ['%8.5e'%(a) for a  in w0]
     print ['%8.5e'%(a) for a in gas.numden]
     print
     #
@@ -118,6 +125,7 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
     # Iterator
     #
     wsol = []
+    gasKappa = [] # need to store kappa
     #
     # Progress bar
     #
@@ -127,25 +135,10 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
         dtnow = (x[ixrange+1]-x[ixrange]) # current step to next point
         if x[ixrange] == 0.0:
             debug = False
-            print
-            print 'This is the shock front'
-            print x[ixrange]
             vshock = w0[0]
             #
             # Solve the shock front
             #
-            print '####################################################'
-            print '  Condition before shock      '
-            print '  velocity:   %2.2f  km/s'%(vshock*1e-5)
-            print '  Pre shock T   :   %d     K   '%(w0[1])
-            if dust.nspecs is not None:
-                print '  Dust Temperature: %d     K   '%(w0[8])
-                print '  Dust density: %2.2e     '%(w0[7])
-                print '  Dust size:  %2.3e       '%(w0[9])
-            print '####################################################'
-            print gas.specfrac
-            print gas._sumRho(), ['%2.4e'%(a) for a in gas.numden]
-            print
             rho2, u2, t2, M1 = get_RHcondition2(u1=vshock, t1=w0[1], gas=gas)
             #
             # Need to check the species fractions
@@ -153,36 +146,28 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
             numdentot = sum(gas.numden)
             gas.specfrac = [a /numdentot for a in gas.numden]
             gas._updateRho(rho=rho2, M1=M1)
-            print gas.specfrac
-            print rho2, gas._sumRho(), ['%2.4e'%(a) for a in gas.numden]
-            #
-            # After the shock
-            #
-            print '####################################################'
-            print '  Condition after shock      '
-            print '  Velocity      :   %2.2f km/s'%(u2*1e-5)
-            print '  Temperature   :   %d     K   '%(t2)
-            if dust.nspecs is not None:
-                print '  Dust Temperature: %d     K   '%(w0[8])
-                print '  Dust density: %2.2e     '%(w0[7])
-                print '  Dust size:  %2.3e       '%(w0[9]), dust.size[0]
-            print '####################################################'
-            print
             #
             # Set the new inputs and then integrate
             #
             dt = (x[ixrange+1]-x[ixrange])/1e1
-            vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+            vode = ode(vectorfield).set_integrator('vode', atol=glbabserr,
                 rtol=telerr, order=5, method='bdf',nsteps=1e3,
                 first_step = dt*1e-3, with_jacobian=True)
             w0 = [u2, t2]
             w0 = w0 + [a*u2 for a in gas.numden]
             w0 = w0 + [dust.numden[0], dust.vel[0],
                 dust.temp[0], dust.size[0]]
-            p = [gas,dust, debug]
+            if haveJ:
+                p  = [gas, dust, Jrad, True, debug]
+            else:
+                p  = [gas, dust, None, False, debug]
             vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
             wsol1 = [vode.t]+w0
+            #
+            # Save the solution
+            #
             wsol.append(wsol1)
+            gasKappa.append(gas._getKap(w0[1], destroyed=dust.destroyed))
             #
             # Integrate this
             #
@@ -208,80 +193,74 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 gas._updateGas(allns=[w0[2+ispec]/w0[0] for ispec
                     in xrange(gas.nspecs)], tgas=w0[1], vgas=w0[0])
                 dust._updateDust(allns=[w0[gas.nspecs+2]],
-                   size=w0[gas.nspecs+5], tdust=w0[gas.nspecs+4],
-                   vdust=w0[gas.nspecs+3])
-                p = [gas, dust, debug]
+                    size=w0[gas.nspecs+5], tdust=w0[gas.nspecs+4],
+                    vdust=w0[gas.nspecs+3])
+                if haveJ:
+                    p  = [gas, dust, Jrad, True, debug]
+                else:
+                    p  = [gas, dust, None, False, debug]
                 vode.set_initial_value(w0, tnow).set_f_params(p)
                 iiter += 1
                 """"""
             """"""
-            print
-            print 'FINISH shock front'
-            print vode.y
-            print
         else:
             """
                 Update with adaptive stepping
             """
-            dt = dtnow/5.
-            if dtnow < 500.0:
-                dt = dtnow + 1e-15
-            #
-            # Define the steps criteria
-            #
-            maxstep = np.maximum(dt/2., 1e-5) # maximum stepping
-            minstep = np.abs(x[ixrange]*1e-8) # numerical stability
-            minstep = np.maximum(minstep, 1e-9)
-            if x[ixrange] > 0:
-                debug = False
+            dt = dtnow
             #
             # Setup the vode
             #
-            vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+            vode = ode(vectorfield).set_integrator('vode', atol=glbabserr,
                 rtol=telerr, order=5, method='bdf',nsteps=1e5,
-                first_step = minstep, max_step=maxstep,
-                with_jacobian=True)
+                with_jacobian=True, min_step=dt*1e-5, first_step=dt*1e-8)
+            tnow = x[ixrange]
             vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
             wsol1 = [vode.t]+w0
             #
             # Save the solution
             #
             wsol.append(wsol1)
+            gasKappa.append(gas._getKap(w0[1], destroyed=dust.destroyed))
             #
             # Integrate with increasing dt starting from 5e-3
             #
             iiter = 1 # iteration stepping
             while vode.successful() and (vode.t<x[ixrange+1]):
-                if (dust.numden[0] < 0.0):
-                    print iiter, ixrange, vode.successful()
-                    print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
-                    print vode.y
-                    print 'NEGATIVE DUST'
-                    raise SystemError
-                """"""
                 vode.integrate(vode.t+dt)
                 ierror = 0 # iteration for error keeping
                 while not vode.successful():
                     """
                         Change the step size again
                     """
-                    dt = dtnow/np.float(2e2+1e1*ierror)
-                    dt = np.minimum(dt, minstep)
-                    p = [gas, dust, True]
+                    print '%2.5e  %2.5e'%(vode.t, dt)
+                    dt = dt/np.float(10.+5.*ierror)
+                    if haveJ:
+                        p  = [gas, dust, Jrad, True, debug]
+                    else:
+                        p  = [gas, dust, None, False, debug]
+                    vode = ode(vectorfield).set_integrator('vode',
+                        atol=glbabserr, rtol=telerr, order=5, method='bdf',
+                        nsteps=1e5, with_jacobian=True, min_step=1e-5,
+                        first_step=1e-3)
                     vode.set_initial_value(w0, tnow).set_f_params(p)
                     vode.integrate(vode.t+dt)
                     ierror+=1
-                    print 'Warning! %d'%(ierror)
+                    print 'Warning! %d'%(ierror), vode.successful()
                     print 'Error in VODE and decreasing step size'
+                    print '%2.3e  %2.3e  %2.3e %2.3e %2.3e %2.3e'%(
+                        vode.t, tnow, dt, dtnow, x[ixrange], x[ixrange+1])
+                    print '%2.5e  %2.5e'%(vode.t, dt)
+                    print vode.y
                     print
-                    if ierror > 10: raise SystemError
+                    if ierror > 15: raise SystemError
                 """"""
                 #
                 # Update the gas and dust first and then create a new input
                 # Create the new ode solver from this point
                 #
-                w0 = vode.y
-                tnow = vode.t
+                w0      = deepcopy(vode.y)
+                tnow    = vode.t
                 #
                 # Check for NAN
                 #
@@ -290,9 +269,8 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 #
                 # Setup the vode
                 #
-                vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+                vode = ode(vectorfield).set_integrator('vode', atol=glbabserr,
                     rtol=telerr, order=5, method='bdf',nsteps=1e5,
-                    first_step = minstep, max_step=maxstep,
                     with_jacobian=True)
                 #
                 # Update the dust and gas
@@ -302,265 +280,38 @@ def solveHD(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, 
                 dust._updateDust(allns=[w0[gas.nspecs+2]],
                     size=w0[gas.nspecs+5], tdust=w0[gas.nspecs+4],
                     vdust=w0[gas.nspecs+3])
-                p = [gas, dust, debug]
+                #
+                # Check if dust is destroyed
+                #
+                if (not dust.destroyed) and (w0[-2] > 2e3):
+                    dust.destroyed = True
+                """"""
+                if haveJ:
+                    p  = [gas, dust, Jrad, True, debug]
+                else:
+                    p  = [gas, dust, None, False, debug]
                 vode.set_initial_value(w0, tnow).set_f_params(p)
                 iiter += 1
                 #
-                # Update the step size
+                # Change the step size
                 #
-                if iiter > 1:
-                    dt *= np.float(iiter)
-                    #
-                    # Define the steps criteria
-                    #
-                    maxstep = dt/5. # maximum stepping
-                    if (x[ixrange+1]-vode.t) < 1e1:
-                        dt = (x[ixrange+1]-vode.t) + 1e-15
-                        maxstep = dt/5.
+                dt = (x[ixrange+1] - vode.t) + 1e-15
             """"""
         """"""
         #
-        # Uncomment here to debug
-        #
-#        print vode.y[1], '%2.5e'%(gas._calculateR(t=vode.y[1])),
-#        print '%2.6e'%(gas._calculateFreeEnergy(t=vode.y[1]))
-        #
         # Update the w0 and x0
         #
         w0 = [a for a in vode.y]
+        #
+        # DEBUG HERE
+        #
+#        print '%2.5e'%(x[ixrange]), ['%2.3e'%(a) for a in w0], gas._sumRho(), dust._sumRho()
     """"""
     wsol1 = [vode.t]+w0
+    #
+    # Save the solution
+    #
     wsol.append(wsol1)
-    return np.array(wsol), vshock
-""""""
-"""
-HDrt Solver
-"""
-def solveHDrt(x=None, gas=None, dust=None, numden = None, mass = None, mugas=2.8, v0 = None, t0 = None, tdust=None, vdust=None, Jrad=None, gamma=3.0/2.0, abserr=1e-12, telerr = 1e-10):
-    """
-        Call the solver with initial conditions v0 and t0
-    """
-    debug   = False # turn this on for debugging
-    w0      = [v0, t0]
-    w0      = w0 + [a*v0 for a in gas.numden]
-    p       = [gas, dust, Jrad, debug]
-    w0      = w0 + [dust.numden[0], v0, t0, dust.size[0]]
-    #
-    # Starting VALUES
-    #
-    print w0
-    print ['%8.5e'%(a) for a in gas.numden]
-    print
-    #
-    # call the solver
-    #
-    from shock1d import vectorfieldrt
-    #
-    # Iterator
-    #
-    wsol = []
-    #
-    # Progress bar
-    #
-    pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval=50.0).start()
-    for ixrange in xrange(x.shape[0]-1):
-        pbar.update((np.float(ixrange)/np.float(x.shape[0]))*50.0)
-        dtnow = (x[ixrange+1]-x[ixrange]) # current step to next point
-        if x[ixrange] == 0.0:
-            debug = False
-            print
-            print 'This is the shock front'
-            print x[ixrange]
-            vshock = w0[0]
-            #
-            # Solve the shock front
-            #
-            print '####################################################'
-            print '  Condition before shock      '
-            print '  velocity:   %2.2f  km/s'%(vshock*1e-5)
-            print '  Pre shock T   :   %d     K   '%(w0[1])
-            if dust.nspecs is not None:
-                print '  Dust Temperature: %d     K   '%(w0[8])
-                print '  Dust density: %2.2e     '%(w0[7])
-                print '  Dust size:  %2.3e       '%(w0[9])
-            print '####################################################'
-            print gas.specfrac
-            print gas._sumRho(), ['%2.4e'%(a) for a in gas.numden]
-            print
-            rho2, u2, t2, M1 = get_RHcondition2(u1=vshock, t1=w0[1], gas=gas)
-            #
-            # Need to check the species fractions
-            #
-            numdentot = sum(gas.numden)
-            gas.specfrac = [a /numdentot for a in gas.numden]
-            gas._updateRho(rho=rho2, M1=M1)
-            print gas.specfrac
-            print rho2, gas._sumRho(), ['%2.4e'%(a) for a in gas.numden]
-            #
-            # After the shock
-            #
-            print '####################################################'
-            print '  Condition after shock      '
-            print '  Velocity      :   %2.2f km/s'%(u2*1e-5)
-            print '  Temperature   :   %d     K   '%(t2)
-            if dust.nspecs is not None:
-                print '  Dust Temperature: %d     K   '%(w0[8])
-                print '  Dust density: %2.2e     '%(w0[7])
-                print '  Dust size:  %2.3e       '%(w0[9]), dust.size[0]
-            print '####################################################'
-            print
-            #
-            # Set the new inputs and then integrate
-            #
-            dtnow = (x[ixrange+1]-x[ixrange])
-            dt = dtnow/5.
-            vode = ode(vectorfieldrt).set_integrator('vode', atol=abserr,
-                rtol=telerr, order=5, method='bdf',nsteps=1e5,
-                first_step = dt*1e-3, with_jacobian=True)
-            w0 = [u2, t2]
-            w0 = w0 + [a*u2 for a in gas.numden]
-            w0 = w0 + [dust.numden[0], dust.vel[0],
-                dust.temp[0], dust.size[0]]
-            p = [gas,dust, Jrad, debug]
-            vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
-            wsol1 = [vode.t]+w0
-            wsol.append(wsol1)
-            #
-            # Integrate this
-            #
-            iiter = 1
-            while vode.successful() and (vode.t<x[ixrange+1]):
-                if (vode.t + dt) > x[ixrange+1]:
-                    dt = np.minimum((x[ixrange+1]-vode.t)+1e-10, dt)
-                vode.integrate(vode.t+dt)
-                if not vode.successful():
-                    raise SystemError
-                #
-                # Create the new ode solver from this point
-                #
-                w0 = deepcopy(vode.y)
-                tnow = vode.t
-                vode = ode(vectorfieldrt).set_integrator('vode', atol=abserr,
-                    rtol=telerr, order=5, method='bdf',nsteps=1e6,
-                    first_step = np.maximum(1e-15, dt/1e3),
-                    with_jacobian=True)
-                #
-                # Update the dust and gas
-                #
-                gas._updateGas(allns=[w0[2+ispec]/w0[0] for ispec
-                    in xrange(gas.nspecs)], tgas=w0[1], vgas=w0[0])
-                dust._updateDust(allns=[w0[gas.nspecs+2]],
-                    size=w0[gas.nspecs+5], tdust=w0[gas.nspecs+4],
-                    vdust=w0[gas.nspecs+3])
-                p = [gas, dust, Jrad, debug]
-                vode.set_initial_value(w0, tnow).set_f_params(p)
-                iiter += 1
-                dt = np.minimum(dt*np.float(iiter), dtnow/3.)
-                if iiter > 1000:
-                    raise SystemError
-                """"""
-            """"""
-            print
-            print 'FINISH shock front'
-            print vode.y
-            print
-        else:
-            dt = dtnow/5.
-            if dtnow < 5e2:
-                dt = dtnow + 1e-15
-            #
-            # Define the steps criteria
-            #
-            maxstep = np.maximum(dt/1e2, 1e-5)
-            minstep = np.abs(x[ixrange]*1e-8) # numerical stability
-            minstep = np.maximum(minstep, 1e-9)
-            #
-            # Setup the vode
-            #
-            vode = ode(vectorfieldrt).set_integrator('vode', atol=abserr,
-                rtol=telerr, order=5, method='bdf',nsteps=1e5,
-                first_step = minstep, max_step=maxstep,
-                with_jacobian=True)
-            vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
-            wsol1 = [vode.t]+w0
-            wsol.append(wsol1)
-            #
-            # Integrate with increasing dt starting from 5e-3
-            #
-            iiter = 1 # iteration stepping
-            while vode.successful() and (vode.t<x[ixrange+1]):
-                if (dust.numden[0] < 0.0):
-                    print iiter, ixrange, vode.successful()
-                    print '%e  %e'%(dt, vode.t), (vode.t < x[ixrange+1])
-                    print vode.y
-                    print 'NEGATIVE DUST'
-                    raise SystemError
-                """"""
-                vode.integrate(vode.t+dt)
-                tnow = vode.t
-                ierror = 0 # iteration for error keeping
-                while not vode.successful():
-                    """
-                    Change the step size again
-                    """
-                    dt = dtnow/np.float(1e2+1e1*ierror)
-                    p = [gas, dust, Jrad, True]
-                    vode.set_initial_value(w0, tnow).set_f_params(p)
-                    vode.integrate(vode.t+dt)
-                    ierror+=1
-                    print 'Warning! %d'%(ierror), ixrange
-                    print 'Error in VODE and decreasing step size'
-                    print
-                    if ierror > 10: raise SystemError
-                """"""
-                #
-                # Create the new ode solver from this point
-                #
-                w0 = vode.y
-                tnow = vode.t
-                #
-                # Check for NAN
-                #
-                if len(np.isnan(w0).nonzero()[0]) > 1:
-                    raise SystemError
-                #
-                # Setup the vode
-                #
-                vode = ode(vectorfieldrt).set_integrator('vode', atol=abserr,
-                    rtol=telerr, order=5, method='bdf',nsteps=1e5,
-                    first_step = minstep, max_step=maxstep,
-                    with_jacobian=True)
-                #
-                # Update the dust and gas
-                #
-                gas._updateGas(allns=[w0[2+ispec]/w0[0] for ispec
-                    in xrange(gas.nspecs)], tgas=w0[1], vgas=w0[0])
-                dust._updateDust(allns=[w0[gas.nspecs+2]],
-                    size=w0[gas.nspecs+5], tdust=w0[gas.nspecs+4],
-                    vdust=w0[gas.nspecs+3])
-                p = [gas, dust, Jrad, debug]
-                vode.set_initial_value(w0, tnow).set_f_params(p)
-                iiter += 1
-                #
-                # Update the step size
-                #
-                if iiter > 1:
-                    dt *= np.float(iiter)
-                    #
-                    # Define the steps criteria
-                    #
-                    maxstep = dt/5. # maximum stepping
-                    if (x[ixrange+1]-vode.t) < 1e1:
-                        dt = (x[ixrange+1]-vode.t) + 1e-15
-                        maxstep = dt/3.
-                """"""
-            """"""
-        #
-        # Update the w0 and x0
-        #
-        w0 = [a for a in vode.y]
-    """"""
-    wsol1 = [vode.t]+w0
-    wsol.append(wsol1)
-    return np.array(wsol), vshock
+    gasKappa.append(gas._getKap(w0[1], destroyed=dust.destroyed))
+    return np.array(wsol), vshock, gasKappa
 """"""

@@ -1,18 +1,15 @@
 import numpy as np
 from python.natconst import *
-from solvers import get_RHcondition, solveHD, solveHDrt
-from oneDRT import calc_tau, calcJrad, calc_tauall
+from solvers import solveHD
+from oneDRT import calc_tauall, calcJrad
 from gasspec import gasSpecs
 from dustspec import dustSpecs
-import matplotlib.pyplot as plt
 from progressbar import ProgressBar, Percentage, Bar
-
 
 """
 The main part of the shock code
 """
-
-def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, mass=2.0*mp, v0=6e5, t0=300., sizex=5.0, numpoints=1e5, mugas=2.8, dustfrac=0.005, mdust=3.3, ncpu=3, niter=1, restart = False):
+def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, v0=6e5, t0=300., sizex=5.0, numpoints=1e5, dustfrac=0.005, mdust=3.3, ncpu=3, niter=5, restart = False):
     """
     The main part of the shock code
     Here:
@@ -52,7 +49,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Solve the whole shock
     # Pre-shock part
     #
-    xpre = np.logspace(np.log10(sizex), -8, numpoints)
+    xpre = np.logspace(-5, np.log10(sizex), numpoints)
+    xpre = xpre[::-1]
     xpre = -xpre[:-1]
     #
     # Add the shock front
@@ -68,8 +66,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Solve this
     #
     if not restart:
-        wpre, vshock = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0,
-            abserr=1e-6, telerr=1e-8)
+        wpre, vshock, gasKap= solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0,
+            telerr=1e-5)
     sol0 = wpre
     print
     print '####################################################'
@@ -79,8 +77,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print '  Postshock n   : 1E%2.1f  cm-3'%(np.log10(gas._sumRho()))
     if ndust is not None:
         print '  Dust Temperature: %d     K   '%(sol0[-2][9])
-        print '  Dust Densities: %1.3e   cm^-3'%(sol0[-1][7])
-        print '  Dust size     :   %1.2f microns'%(sol0[-2][10])
+        print '  Dust Densities: 1E%2.1f   cm^-3'%(np.log10(dust._sumRho()))
+        print '  Dust size     :   %1.4f microns'%(sol0[-2][10])
     print '####################################################'
     print
     #
@@ -91,10 +89,13 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
       - Calculate the Jrad
       - Caluclate tau
     """
+    #
+    # Get the opacities
+    #
+    gas._getOpacs()
     print
     print 'Solving radiation field...'
-    tau, srcall = calc_tauall(sol=sol0, gas=gas,
-        dust=dust)
+    tau, srcall = calc_tauall(sol=sol0, gas=gas, dust=dust, gasKap=gasKap)
     #
     # Vectorize method as of Jul 2015
     #
@@ -110,7 +111,11 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     for iiter in xrange(niter):
         print
         print ' Iteration: %d'%(iiter+1)
-        print 'Tpost: %8.1f'%(Tpost)
+        print 'Tpost: %8.2f'%(Tpost)
+        #
+        # Old temperature solution
+        #
+        oldT = sol0[:,2]
         #
         # Reset the gas and dust conditions
         #
@@ -128,6 +133,10 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         print 'Initial size: %1.2f micron'%(dust.size[0]*1e4)
         print
         #
+        # Get opacities
+        #
+        gas._getOpacs()
+        #
         # Check whether there are Nones in the input
         #
         print
@@ -142,8 +151,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         #
         # Solve this
         #
-        wpre, vshock = solveHDrt(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0,
-                 Jrad=Jrad, abserr=1e-6, telerr=1e-8)
+        wpre, vshock, gasKap = solveHD(x=xpre, gas=gas, dust=dust, v0=v0, t0=t0,
+            haveJ=True, Jrad=Jrad, abserr=1e-8, telerr=1e-8)
         sol0 = wpre
         print
         print '####################################################'
@@ -153,8 +162,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         print '  Postshock n   : 1E%2.1f  cm-3'%(np.log10(gas._sumRho()))
         if ndust is not None:
             print '  Dust Temperature: %d     K   '%(sol0[-2][9])
-            print '  Dust Densities: %1.3e   cm^-3'%(sol0[-1][7])
-            print '  Dust size     :   %1.2f microns'%(sol0[-2][10])
+            print '  Dust Densities: 1%2.1f   cm^-3'%(np.log10(dust._sumRho()))
+            print '  Dust size     :   %1.4f microns'%(sol0[-2][10])
         print '####################################################'
         print
         """
@@ -167,53 +176,53 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         #
         # Check the Frad and calculate Tpost accordingly
         #
-        if np.abs(Frad[0]) > np.abs(Frad[-1]):
+        if Frad[0] < 0.0:
             corrFrad = Frad[0]
         else:
-            corrFrad = Frad[-1]
+            corrFrad = Frad[-5]
         changeTpost = np.minimum(np.abs(np.power(np.abs(corrFrad/ss), 0.25))
-            /4., 25.0)
+            /50., 2.0)
         if corrFrad > 0.0:
             Tpost += changeTpost
         else:
             Tpost -= changeTpost
         """"""
-        delT = np.abs(oldtpost - Tpost)/Tpost
+        #
+        # Check the temperature at boundary
+        #
+        Tpost1   = np.minimum(sol0[-1,2], sol0[-1,-2])
+        Tpost = (Tpost + Tpost1)/2.
+        delT = np.abs(oldtpost - Tpost)
         print 'Frad: %2.3e -- %2.3e'%(Frad[0], Frad[-1])
-        print 'Iter: %d -- Tpost: %d %2.3e %2.3e'%(iiter, Tpost, changeTpost,
-            delT)
+        print 'Iter: %d -- Tpost: %8.2f %2.3e %2.3e'%(iiter, Tpost,
+            changeTpost, delT)
         print
         """"""
         print
         print 'Solving radiation field...'
         print
-        from joblib import Parallel, delayed
-        if nspecs is None:
-            taumax, tau, dtau, srcall = calc_tau(sol0[:,0], numden, mass,
-                             sol0[:, 2])
-            Jrad = [Parallel(n_jobs=ncpu)(delayed(calcJrad)(Tpre, Tpost,
-                tau[ix], tau, dtau,taumax,temps=sol0[:,2]) for ix in
-                xrange(dtau.shape[0]))]
-        else:
-            if ndust is None: # no dust
-                taumax, tau, dtau, srcall = calc_tauall(sol=sol0, gas=gas,
-                    dust=dust)
-                Jrad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall, tau=tau)
-            else: # with dust
-                tau, srcall = calc_tauall(sol=sol0, gas=gas,
-                    dust=dust)
-                #
-                # Vectorize method as of Jul 2015
-                #
-                Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall,
-                    tau=tau)
-            """"""
-        Jrad = np.array([sol0[:,0],Jrad[:]])
+        tau, srcall = calc_tauall(sol=sol0, gas=gas, dust=dust, gasKap=gasKap)
+        #
+        # Vectorize method as of Jul 2015
+        #
+        Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall,
+            tau=tau)
         """"""
-        if delT < 1e-4:
-            iiter = niter+1
+        Jrad = np.array([sol0[:,0],Jrad[:]])
+        #
+        # Calculate the change in temperature
+        #
+        Tchange = np.sqrt(np.power(np.abs(oldT - sol0[:,2]),2.0).sum())
+        delT = np.maximum(delT, Tchange/np.float(xpre.shape[0]))
+        print 'Iteration: %d -- delT: %2.4f'%(iiter, delT)
+        """"""
+        #
+        # Check for convergence
+        #
+        if (delT < 1e-2):
+            iiter = iiter+1
             break
-        if Tpost > 1e5: break
+        """"""
     """"""
     print
     print '#### DONE ###'

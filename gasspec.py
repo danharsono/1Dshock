@@ -1,9 +1,23 @@
 from python.natconst import *
-import numpy as np
+import numpy as np; from copy import deepcopy
+from scipy.integrate import ode
 
 """
 The gas components for the shock code
 """
+
+def solveChem(x,w,p):
+    """
+        Solve the chemistry
+    """
+    gas, t = p
+    #
+    # calculate the changes
+    #
+    dx = gas._calculateChem(t=t)
+    return dx
+""""""
+
 class gasSpecs():
     """ 
     Constructor
@@ -40,7 +54,7 @@ class gasSpecs():
             self.nspecs =3
             self.mass = [mp, 2.0*mp, 4.0*mp]
             self.specfrac = [0.01, 0.74, 0.25]
-            mu = 0.01 + 0.74/2.0 + 0.25/4.0
+            mu = 0.71 + 0.27/4.
             self.mugas = mu**(-1.0)
             n0 = self.rho/sum(self.specfrac)
             self.numden = [a*n0/b for (a,b) in zip(self.specfrac,
@@ -52,14 +66,26 @@ class gasSpecs():
             """
             self.nspecs=4
             self.mass = [mp, 2.0*mp, 4.0*mp, 44.0*mp]
-            self.specfrac = [0.01, 0.74, 0.25, 0.0]
-            mu = 0.01 + 0.65/2.0 + 0.34/4.0
-            self.mugas = mu**(-1.0)
-            n0 = self.rho/sum(self.specfrac)
-            self.numden = [a*n0/b for (a,b)
-                in zip(self.specfrac, self.mass)]
             self.gamma = [5.0/2.0, 7.0/2.0, 5.0/2.0, 7.0/2.]
-
+            #
+            # get columns
+            #
+            self.mugas = 1./(0.83*(0.5 + 0.2*0.25))
+            self.specfrac = [1e-4, 0.83, 0.16656,0.0]
+            n0 = self.rho/sum(self.specfrac)
+            self.numden = [a*n0/b for (a,b) in zip(self.specfrac,
+                self.mass)]
+            #
+            # Evolve this until steady state
+            #
+#            temp = self._getSteady()
+#            self.numden = [a for a in temp]
+    """"""
+    def getInps(self):
+        """
+        Create a list of the input parameters for the gas
+        """
+        return [self.vgas, self.tgas]+[a for a in self.numden]
     """"""
     def _sumRho(self):
         return sum([a*b for (a,b) in zip(self.numden, self.mass)])
@@ -84,8 +110,6 @@ class gasSpecs():
         """
         self.rho = rho
         for ispec in xrange(self.nspecs):
-            print M1,((self.gamma[ispec]+1.0)*M1/(
-                  (self.gamma[ispec]-1.0)*M1+2.) )
             self.numden[ispec] *= ((self.gamma[ispec]+1.0)*M1/(
                (self.gamma[ispec]-1.0)*M1+2.) )
     """"""
@@ -101,125 +125,134 @@ class gasSpecs():
         """
         Update gas densities
         """
-        self.numden = allns
-        self.tgas = tgas
-        self.vgas = vgas
+        if allns is not None:
+            self.numden = allns
+        if tgas is not None:
+            self.tgas = tgas
+        if vgas is not None:
+            self.vgas = vgas
     """"""
-    def _calculateR(self, t=None):
+    def _getOpacs(self):
+        """ 
+        Get gas planck opacities
+        """
+        data = np.genfromtxt('planckOpacs.data')
+        self.logT = np.log10(data[:,0])
+        self.logK = np.log10(data[:,1])
+    """"""
+    def _getKap(self, t, destroyed=False):
+        """
+        Get opacities
+        """
+        if destroyed:
+            return 0.5
+        else:
+            try:
+                return 10.0**(np.interp(t, self.logT, self.logK))
+            except AttributeError:
+                return 0.0
+    """"""
+    def _calculateR(self, vars=None):
         """
         Calculate the reactions and update the values
         This rate is the creation of gas species i 
         in terms of number of reactions per unit time 
         per unit volume
         """
+        t = vars[1]
         rate1 = 8.72e-33*(t/300.0)**(-0.6) # cm^6 per sec
-        rate2 = 1.83e-31*(t/300.0)**(-1)
+        rate2 = 1.83e-31*(t/300.0)**(-1) # cm^6 per sec
         rate3 = 1.50e-9*np.exp(-46350./t)
         rate4 = 3.75e-8*(t/300.0)**(-0.5)*np.exp(-53280./t)
+        #
+        # Create the reaction matrix
+        #
+        temprates = np.zeros((self.nspecs, self.nspecs), dtype=np.float64)
         if self.nspecs > 1:
-            totrate = (self.numden[0]**(2.)*(rate1*self.numden[1] + 
-                rate2*self.numden[0]) - self.numden[1]*(rate3*
-                self.numden[1]+rate4*self.numden[0]) )
-            return totrate
+            totrate = (vars[2]*vars[2]*(rate1*vars[3] +
+                rate2*vars[2]) - vars[3]*(rate3*vars[3]+rate4*vars[2]) )
         else:
-            return 0.0
+            totrate = 0.0
+        temprates[0,0] = -2. * totrate
+        temprates[0,1] = totrate
+        return temprates
     """"""
-    def _calculateVarC(self, vel=None, t=None, veld=None, td=None, dust=None, Jrad=None):
-        """
-        Calculate the right hand side of the momentum equation
-        - Sign error corrected: Aug 3 2015
-        """
-        normrate = self._calculateR(t=t)
-        if self.nspecs > 1:
-            first = -2.0*normrate*(vel*self.mass[0]+(kk*t/vel))
-            second = normrate*(vel*self.mass[1]+(kk*t/vel))
-            third = 0.0
-            #
-            # This is now dust stuff
-            #
-            if dust is not None:
-                fdrag = dust._calculateFdrag(vd=veld,
-                     vg=vel, Tg=t, Td=td, gas=self)
-                dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t, Td=td,gas=self,
-                    Jrad=Jrad)
-                """"""
-                """
-                    This should be formation of SiO and the momentum
-                """
-                fourth = - ( (dust.numden[0]*dust.vel[0]*
-                    4.0*np.pi*dust._sumRho()*dust.size[0]*dust.size[0])/
-                    (self.mass[3]) )*dxa * (vel*self.mass[2] + (kk*t/vel))
-                fifth = (dust.numden[0]* fdrag +
-                    4.0*np.pi*dust.size[0]*dust.size[0]*
-                    dust._sumRho() * veld*veld*dxa )
-            else:
-                fourth = 0.0
-                fifth = 0.0
-            return first+second+third+fourth+fifth
-        else:
-            return 0.0
-        
-    """"""
-    def _calculateVarF(self, vel=None, t=None, veld=None, td=None, dust=None, Jrad=None):
-        """
-        Calculate the right hand side of the energy equation
-        """
-        normrate = self._calculateR(t=t)
-        if self.nspecs > 1:
-            first = -2.0*normrate*(self.mass[0]*self.gamma[0]*kk*t +
-                0.5*vel*vel*self.mass[0])
-            second = normrate*(self.mass[1]*self.gamma[1]*kk*t +
-                0.5*vel*vel*self.mass[1])
-            third = 0.0
-            #
-            # Dust stuffs below
-            #
-            if dust is not None:
-                fdrag = dust._calculateFdrag(vd=veld,
-                     vg=vel, Tg=t, Td=td, gas=self)
-                dxa = dust._calcDxa(vd=veld, vg=vel, Tg=t,
-                    Td=td,gas=self, Jrad=Jrad)
-                dxtd = dust._calcDxTd(vd=veld, vg=vel, Tg=t,
-                    Td=td, gas=self, Jrad = Jrad)
-                """"""
-                fourth = ((dust.numden[0]*dust.vel[0]*4.0*np.pi*
-                    dust._sumRho()*dust.size[0]*dust.size[0]*dxa)*(
-                    self.mass[3]*self.gamma[3]*kk*t +
-                    0.5*vel*vel*self.mass[3]))
-                fifth = veld*dust.numden[0]*(fdrag +
-                    2.0*np.pi*dust.size[0]*dust.size[0]*
-                    dust._sumRho()*veld*veld*dxa)
-                dustmass = (4.0/3.0)*np.pi*dust._sumRho()* dust.size[0]**(3.)
-                #
-                # Calculate the heat capacity
-                #
-                if (td > 1400.0) and (td < 1820.0):
-                    Cpd = 2.19e7
-                else:
-                    Cpd = 1e7
-                """"""
-                sixth = (dust.numden[0]*dustmass*veld*Cpd*dxtd)
-                seventh = (4.0*np.pi*dust.size[0]**(2.)*dust.numden[0]*
-                   Cpd*veld*td*dust._sumRho()*dxa )
-            else:
-                fourth = 0.0
-                fifth = 0.0
-                sixth = 0.0
-                seventh= 0.0
-            return first+second+third+fourth+fifth+sixth+seventh
-        else:
-            return 0.0
-        
-    """"""
-    def _calculateFreeEnergy(self, t=None):
+    def _calculateFreeEnergy(self, w=None):
         """
         Calculate the net energy
         H + H + energy -> H2 
         H2 + energy -> H + H
         """
-        normrate = self._calculateR(t=t)
+        normrate = self._calculateR(vars=w)
         onev = 1.6021772e-12
-        return 2*normrate*4.48*onev - normrate*4.48*onev
+        return sum(normrate.sum(axis=0))*(-4.48*onev)
     """"""
-    
+    def _getChemInput(self):
+        """
+        Create the input for the chemistry
+        """
+        return [a for a in self.numden]
+    """"""
+    def _calculateChem(self, t):
+        """
+            Calculate the rates
+        """
+        #
+        # ToDO: match the species and rates
+        # Assume H, H2, He, SiO
+        #
+        rate = self._calculateR(vars=self.getInps())
+        return rate.sum(axis=0)
+    """"""
+    def _getSteady(self):
+        """
+        Solve the rates to get steady state solution and abundances at 
+        fixed temperatures
+        """
+        #
+        # INPUTS: w0 and p
+        #
+        p = [self, self.tgas]
+        w0 = self._getChemInput()
+        dt = 1e5
+        t = 0.0
+        #
+        # Setup the vode
+        #
+        vode = ode(solveChem).set_integrator('vode', atol=1e-5,
+            rtol=1e-5, order=5, method='bdf',nsteps=1e5,
+            first_step = 1e1, max_step=1e5,
+            with_jacobian=True)
+        #
+        # stop it when this occurs
+        #
+        reltoll = 1e-4
+        reached = True
+        while(reached):
+            vode.set_initial_value(w0, t).set_f_params(p)
+            #
+            # store old values
+            #
+            oldy = vode.y
+            #
+            # Integrate
+            #
+            vode.integrate(vode.t+dt)
+            t = vode.t
+            #
+            # Set the new values
+            #
+            self._updateGas(allns=deepcopy(vode.y), tgas=self.tgas)
+            w0 = self._getChemInput()
+            p = [self, self.tgas]
+            #
+            # Check changes
+            #
+            dy = max(np.abs(vode.y-oldy)/(vode.y+1e-15))
+            dx = max(self._calculateChem(t=self.tgas))
+            if np.isnan(dx): raise SystemExit
+            if (dy < reltoll) or (dx < reltoll):
+                reached = False
+        """"""
+        return w0
 """"""

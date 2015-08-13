@@ -9,8 +9,11 @@ ndust = 1
 ngas = 4
 vshock=6.5e5
 tgas = 300.
-solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=2e3,
-   nspecs=ngas, ndust=ndust, v0=vshock, niter=15, ncpu=0, t0=tgas, restart=False)
+#
+# SOLVE
+#
+solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=6e3,
+   nspecs=ngas, ndust=ndust, v0=vshock, niter=30, ncpu=0, t0=tgas, restart=False)
 #print vshock
 #
 # Write out the solutions
@@ -29,6 +32,7 @@ sols = fileio.readOut(fname='shockout')
 #
 # position is relative to the shock front
 #
+#sols['gas'].attrs['vhshock'] = 6.5e5
 x0 = sols['grid']/sols['gas'].attrs['vshock']
 x0 = x0/3600.0
 #

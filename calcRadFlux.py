@@ -58,10 +58,10 @@ def calcJrad(sol):
     # Calculate the radiation field
     #
     Tpre    = gas[0,1]
-#    Tpost   = np.minimum(gas[-1,1], dust[-1,2])
+    #    Tpost   = np.minimum(gas[-1,1], dust[-1,2])
     Tpost   = 1700.
-    Ipre    = (ss/np.pi)*Tpre**(4.)
-    Ipost   = (ss/np.pi)*Tpost**(4.)
+    Ipre    = (ss/np.pi)*np.power(Tpre, 4.)
+    Ipost   = (ss/np.pi)*np.power(Tpost, 4.)
     #
     # Source functions
     #
