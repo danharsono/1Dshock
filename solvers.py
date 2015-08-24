@@ -11,6 +11,23 @@ from copy import deepcopy
 # Global absolute error
 #
 glbabserr = [1.0, 1e-2, 0.1, 0.1, 0.1, 0.1, 1e-12, 1.0, 1e-2, 1e-8]
+def createInputs(v0, t0, gas, dust):
+    """
+    Function to create input parameters
+    """
+    #
+    # Input structure: vgas, tgas, nspec, ndust1, vdust1, tdust1, adust1,...
+    #
+    w = [v0, t0] # initial gas velocity and temperature
+    w += [a*v0 for a in gas.numden]
+    for idust in range(dust.nspecs):
+        w += [dust.numden[idust]]
+        w += [v0]
+        w += [t0]
+        w += [dust.size[idust]]
+    """"""
+    return w
+""""""
 """
     Solving the Rankine Hugionot conditions 2
 """
@@ -32,13 +49,13 @@ def get_RHcondition2(u1=None, par=None, gas=None):
     #
     # Solve the densities, velocities and temperatures
     #
-    rho2 = gas._sumRho()*( (gam+1.0)*M1/( (gam-1.0)*M1+2.) )
+    rho2 = rhogas*( (gam+1.0)*M1/( (gam-1.0)*M1+2.) )
     u2 = u1 * ((gam-1.)*M1+2.)/( (gam+1.)*M1)
     t2 = par[1] * (2.*gam*M1 - gam +1.)*( (gam-1.)*M1 + 2.)/( (gam + 1.)*
         (gam + 1.) * M1)
     print
     print 'Mach: %d'%(np.sqrt(M1)), par[1], u1, mbar, gam
-    print 'Density: %2.5e -->  %2.5e'%(gas._sumRho()/(2.0*mp), rho2/(2.0*mp))
+    print 'Density: %2.5e -->  %2.5e'%(rhogas/(2.0*mp), rho2/(2.0*mp))
     print 'Temperature: %2.5e --> %2.5e'%(par[1], t2)
     print 'Velocity: %2.5e --> %2.5e'%(u1, u2)
     return rho2, u2, t2, M1
@@ -52,21 +69,18 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
     """
     debug=False # turn this on for debugging
     #
-    # TODO: inputs are generated from gas and dust properties
     # INPUTS: w0 and p
     #
-    w0 = [v0, t0]
-    w0 = w0 + [a*v0 for a in gas.numden]
+    w0 = createInputs(v0,t0,gas,dust)
     if haveJ:
         p  = [gas, dust, Jrad, True, debug]
     else:
         p  = [gas, dust, None, False, debug]
-    w0 = w0 + [dust.numden[0], v0, t0, dust.size[0]]
     #
     # Starting VALUES
     #
+    print 'Starting VALUES: '
     print ['%8.5e'%(a) for a  in w0]
-    print ['%8.5e'%(a) for a in gas.numden]
     print
     #
     # call the solver
@@ -99,9 +113,19 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                 zip(w0[2:gas.nspecs+2], gas.gamma)])
             gam = (gam/sum(w0[2:gas.nspecs+2]) + 2.)/(gam/
                 sum(w0[2:gas.nspecs+2]))
-            gas._updateRho(rho=rho2, M1=M1, gamma = gam)
-            numdentot = sum(gas.numden)
-            gas.specfrac = [a /numdentot for a in gas.numden]
+            #
+            # The new inputs
+            # Calculate the new number densities
+            #
+            for iinps in xrange(gas.nspecs+2):
+                if iinps    == 0:
+                    w0[iinps] = u2
+                elif iinps  == 1:
+                    w0[iinps] = t2
+                else:
+                    w0[iinps] *= ((gam+1.)*M1 / ( (gam-1.)*M1 + 2.))
+                """"""
+            """"""
             #
             # Set the new inputs and then integrate
             #
@@ -109,10 +133,6 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
             vode = ode(vectorfield).set_integrator('vode', atol=glbabserr,
                 rtol=telerr, order=5, method='bdf',nsteps=1e3,
                 first_step = dt*1e-3, with_jacobian=True)
-            w0 = [u2, t2]
-            w0 = w0 + [a*u2 for a in gas.numden]
-            w0 = w0 + [dust.numden[0], dust.vel[0],
-                dust.temp[0], dust.size[0]]
             if haveJ:
                 p  = [gas, dust, Jrad, True, debug]
             else:
@@ -143,14 +163,6 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                     rtol=telerr, order=5, method='bdf',nsteps=1e4,
                     first_step = np.maximum(1e-15, dt/1e3),
                     with_jacobian=True)
-                #
-                # Update the dust and gas
-                #
-                gas._updateGas(allns=[w0[2+ispec]/w0[0] for ispec
-                    in xrange(gas.nspecs)], tgas=w0[1], vgas=w0[0])
-                dust._updateDust(allns=[w0[gas.nspecs+2]],
-                    size=w0[gas.nspecs+5], tdust=w0[gas.nspecs+4],
-                    vdust=w0[gas.nspecs+3])
                 if haveJ:
                     p  = [gas, dust, Jrad, True, debug]
                 else:
@@ -228,14 +240,6 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                 vode = ode(vectorfield).set_integrator('vode', atol=glbabserr,
                     rtol=telerr, order=5, method='bdf',nsteps=1e5,
                     with_jacobian=True)
-                #
-                # Update the dust and gas
-                #
-                gas._updateGas(allns=[w0[2+ispec]/w0[0] for ispec
-                    in xrange(gas.nspecs)], tgas=w0[1], vgas=w0[0])
-                dust._updateDust(allns=[w0[gas.nspecs+2]],
-                    size=w0[gas.nspecs+5], tdust=w0[gas.nspecs+4],
-                    vdust=w0[gas.nspecs+3])
                 #
                 # Check if dust is destroyed
                 #

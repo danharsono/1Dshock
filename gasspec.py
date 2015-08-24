@@ -47,6 +47,7 @@ class gasSpecs():
             self.numden = [self.rho/a for a in self.mass]
             self.gamma = [5.0/2.0]
             self.mugas = 2.4
+            self.dustfrac = [0]
         elif nspecs == 3:
             """
             Use H, H2 and He
@@ -60,6 +61,7 @@ class gasSpecs():
             self.numden = [a*n0/b for (a,b) in zip(self.specfrac,
                 self.mass)]
             self.gamma = [5.0/2.0, 7.0/2.0, 5.0/2.0]
+            self.dustfrac = [0, 0, 0]
         elif nspecs == 4:
             """
             Add SiO
@@ -67,6 +69,7 @@ class gasSpecs():
             self.nspecs=4
             self.mass = [mp, 2.0*mp, 4.0*mp, 44.0*mp]
             self.gamma = [5.0/2.0, 7.0/2.0, 5.0/2.0, 7.0/2.]
+            self.dustfrac = [0., 0., 0., 1.]
             #
             # get columns
             #
@@ -86,50 +89,6 @@ class gasSpecs():
         Create a list of the input parameters for the gas
         """
         return [self.vgas, self.tgas]+[a for a in self.numden]
-    """"""
-    def _sumRho(self):
-        return sum([a*b for (a,b) in zip(self.numden, self.mass)])
-    """"""
-    def _getMugas(self):
-        curfrac = [(a*b)/self._sumRho() for (a,b) in
-               zip(self.numden, self.mass)]
-        mu = [a/(b/mp) for (a,b) in zip(curfrac, self.mass)]
-        return sum(mu)**(-1.)
-    """"""
-    def _sumEnergy(self):
-        return sum([a*b*c for (a,b,c) in 
-            zip(self.gamma,self.numden, self.mass)])
-    """"""
-    def _sumGammas(self):
-        return sum([a*b for (a,b) in zip(self.numden, self.gamma)])
-    """"""
-    def _updateRho(self, rho=None, M1=None, gamma=None):
-        """
-            Update rho after shock
-            using the compression factor
-        """
-        self.rho = rho
-        for ispec in xrange(self.nspecs):
-            self.numden[ispec] *= ((gamma+1.)*M1 / ( (gamma-1.)*M1 + 2.))
-    """"""
-    def _getGamma(self):
-        """
-            Return the total specific heats
-        """
-        top = sum([a*b for (a,b) in zip(self.gamma, self.numden)])
-        bottom = sum([(a-1.)*b for (a,b) in zip(self.gamma, self.numden)])
-        return top/bottom
-    """"""
-    def _updateGas(self, allns=None, tgas=None, vgas=None):
-        """
-        Update gas densities
-        """
-        if allns is not None:
-            self.numden = allns
-        if tgas is not None:
-            self.tgas = tgas
-        if vgas is not None:
-            self.vgas = vgas
     """"""
     def _getOpacs(self):
         """ 

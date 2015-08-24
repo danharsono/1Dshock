@@ -1,37 +1,15 @@
 import numpy as np
 from python.natconst import *
 import time
-
 """
-Set global variables here
+Decipher the input parameters from the gas and dust parameters
 """
-isstart = 0
-def isstart():
-    isstart = 1
+def decipherW(w, gas, dust):
+    x1, x2, n1, n2, n3, n4, nd, vd, td, ad = w
+    if (ad < 0.0): ad = 1e-10
+    w = [x1,x2,n1/x1,n2/x1,n3/x1,n4/x1,nd,vd,td,ad]
+    return w
 """"""
-
-def set_oldx(a):
-    global oldx
-    oldx = a
-""""""
-
-tau = 1e-5
-def set_tau(a=None, b=None):
-    global tau
-    tau = a + b
-""""""
-
-def getTau():
-    return tau
-
-"""
-Define functions here
-"""
-def get_dtau(alpha, b):
-    ds = b-oldx
-    return alpha*ds
-""""""
-
 """
 The vector field of the matrix to solve
 """
@@ -51,9 +29,7 @@ def vectorfield(x,w, p):
     else:
         curJ = None
     """"""
-    x1, x2, n1, n2, n3, n4, nd, vd, td, ad = w
-    if (ad < 0.0): ad = 1e-10
-    w = [x1,x2,n1/x1,n2/x1,n3/x1,n4/x1,nd,vd,td,ad]
+    w = decipherW(w, gas, dust)
     #
     # Calculate the constants first
     #
@@ -62,15 +38,36 @@ def vectorfield(x,w, p):
     #
     # Dust changes
     #
-    mdust   = (4.0/3.0)*np.pi*dust.mdust*np.power(w[-1], 3.)
-    fdrag   = dust._calculateFdrag(w=w, rhoGas=Rhogas, NGas = Ngas)
-    dxa     = dust._calcDxa(w=w, rhoGas=Rhogas, NGas = Ngas, gas=gas, Jrad=curJ)
-    dxtd    = dust._calcDxTd(w=w, rhoGas=Rhogas, NGas=Ngas, gas=gas, Jrad=curJ)
-    Cpd     = dust._getCpd(td = w[-2])
+    mdust       = np.zeros(dust.nspecs)
+    fdrag       = np.zeros(dust.nspecs)
+    dxa         = np.zeros(dust.nspecs)
+    dxtd        = np.zeros(dust.nspecs)
+    Cpd         = np.zeros(dust.nspecs)
+    dustLoss    = 0.0
+    for idust in xrange(dust.nspecs):
+        nd = w[2+gas.nspecs + idust*4 + 0]
+        vd = w[2+gas.nspecs + idust*4 + 1]
+        td = w[2+gas.nspecs + idust*4 + 2]
+        ad = w[2+gas.nspecs + idust*4 + 3]
+        mdust[idust]    = (4.0/3.0)*np.pi*dust.mdust*np.power(ad, 3.)
+        fdrag[idust]    = dust._calculateFdrag(w=w, gas=gas, idust=idust,
+            rhoGas=Rhogas, NGas = Ngas)
+        dxa[idust]      = dust._calcDxa(w=w, idust=idust,
+            rhoGas=Rhogas, NGas = Ngas, gas=gas, Jrad=curJ)
+        dxtd[idust]     = dust._calcDxTd(w=w, idust=idust,
+            rhoGas=Rhogas, NGas=Ngas, gas=gas, Jrad=curJ)
+        Cpd[idust]      = dust._getCpd(td = w[-2])
+        if dxa[idust] > 0.0:
+            dustLoss    += 0.0
+        else:
+            dustLoss    += -4.0 *np.pi * (nd * vd * dust.mdust *
+                ad*ad * dxa[idust])
+        """"""
+    """"""
     #
     # Calculate the variable here
     #
-    varA = Rhogas*x1 - (kk*x2/x1)*Ngas
+    varA = Rhogas*w[0] - (kk*w[1]/w[0])*Ngas
     varB = Ngas*kk
     #
     # Variable C now has dust properties
@@ -82,16 +79,17 @@ def vectorfield(x,w, p):
     #
     # Add the dust evaporation mass
     #
-    dustLoss = -4.0 *np.pi * nd * vd * dust.mdust * ad*ad * dxa
-    if dxa > 0.0:
-        dustLoss = 0.0
     dumGas += dustLoss/(gas.mass[3])*(w[0]*gas.mass[3] + (kk*w[1]/w[0]))
     #
     # Get the dust part
     #
-    dumDust = nd * fdrag + 4.0*np.pi*w[-1]*w[-1]*dust.mdust*(
-        w[gas.nspecs+2]*w[gas.nspecs+2])*dxa
-    varC = -(dumGas + dumDust)
+    #    dumDust = nd * fdrag + 4.0*np.pi*w[-1]*w[-1]*dust.mdust*(
+    #        w[gas.nspecs+2]*w[gas.nspecs+2])*dxa
+    dumDust = [w[2+gas.nspecs+id*4 +0] * (fdrag[id] +
+        4.0*np.pi * np.power(w[2+gas.nspecs+id*4 + 3],2) * dust.mdust *
+        np.power(w[2+gas.nspecs+id*4+1], 2.) * dxa[id])
+        for id in xrange(dust.nspecs)]
+    varC = -(dumGas + sum(dumDust))
     #
     # Calculate the variables for energy equation
     #
@@ -102,22 +100,33 @@ def vectorfield(x,w, p):
     #
     dumGas = sum([(a*(b*kk*w[1] + 0.5*w[0]*w[0]*c)) for (a,b,c,) in
         zip(RatesMat, gas.gamma, gas.mass)])
-    dumGas += dustLoss/(gas.mass[3]) * (gas.gamma[3]*kk*w[1] + 0.5*w[0]*w[0]*gas.mass[3])
+    dumGas += dustLoss/(gas.mass[3]) * (gas.gamma[3]*kk*w[1] +
+        0.5*w[0]*w[0]*gas.mass[3])
     #
     # Dust part for variable F
     #
-    dumDust = vd*nd * (fdrag + 2*np.pi*w[-1]*w[-1]*dust.mdust*vd*vd*dxa)
-    dumDust += nd * mdust * vd * Cpd * dxtd
-    dumDust += (4.0 * np.pi * w[-1]*w[-1] * nd * Cpd * w[-3] * w[-2] *
-        dust.mdust * dxa)
-    varF = - (dumGas + dumDust) + gas._calculateFreeEnergy(w=w)
+    #    dumDust = vd*nd * (fdrag + 2*np.pi*w[-1]*w[-1]*dust.mdust*vd*vd*dxa)
+    #    dumDust += nd * mdust * vd * Cpd * dxtd
+    #    dumDust += (4.0 * np.pi * w[-1]*w[-1] * nd * Cpd * w[-3] * w[-2] *
+    #        dust.mdust * dxa)
+    dumid = gas.nspecs+2
+    dumDust = [ w[dumid+id*4+1] * w[dumid+id*4+0] *
+        (fdrag[id] + 2*np.pi*np.power(w[dumid+id*4+3],2.)*dust.mdust*
+        np.power(w[dumid+id*4+1], 2.)*dxa[id]) + w[dumid+id*4+0] * (
+        mdust[id] * w[dumid+id*4+1] * Cpd[id] * dxtd[id]) + (4.0 * np.pi * (
+        np.power(w[dumid+id*4+3],2.) * w[dumid+id*4+0] * Cpd[id] *
+        w[dumid+id*4+1] * w[dumid+id*4+2]*dust.mdust*dxa[id]))
+        for id in xrange(dust.nspecs)]
+    varF = - (dumGas + sum(dumDust)) + gas._calculateFreeEnergy(w=w)
     radiation = 0.0
     if haveJ:
         radiation += (4.0*np.pi*Rhogas * gas._getKap(x2,
             destroyed=dust.destroyed) *
             (curJ - (ss*np.power(w[1], 4.)/np.pi)) +
-            4.0* np.pi * np.pi * nd  * ad * ad * dust._getEps(size = ad) *
-            (curJ-(ss*np.power(w[-2],4.)/np.pi)) )
+            sum([4.0* np.pi * np.pi * w[dumid+4*id+0] *
+                np.power(w[dumid+4*id+3], 2.) * dust._getEps(size =
+                w[dumid+4*id+3]) * (curJ-(ss*np.power(w[dumid+4*id+2], 4.)
+                /np.pi)) for id in xrange(dust.nspecs)]))
     varF += radiation
     #
     # The RHS matrix
@@ -129,39 +138,43 @@ def vectorfield(x,w, p):
     #
     # Integration is over space dx
     # The change of n * v
+    # changes in chemical species
     #
-    f3 = RatesMat[0] # (s cm^-3)^-1
-    f4 = RatesMat[1]
-    f5 = 0.0
-    f6 = dustLoss/gas.mass[3]
+    fchem = [a for a in RatesMat]
+    #
+    # Add the dust evaporation
+    #
+    fchem = [a + b*dustLoss/c for (a,b,c) in zip(fchem, gas.dustfrac,
+        gas.mass)]
     #
     #
     # DUST from here on
     #
     if dust.nspecs == 0:
-        f7 = 0.0
-        f8 = 0.0
-        f9 = 0.0
-        f10 = 0.0
+        fdust = np.zeros(4)
     else:
-        f8 = fdrag/(mdust*vd) # Dust velocities change
-        f7 = -(nd/vd)*f8 # This is for number of dust
-        if f7 < 1e-25: f7 = 0.0
-        f9 = dxtd
-        f10 = dxa
+        fdust = np.zeros(dust.nspecs*4)
+        for idust in xrange(dust.nspecs):
+            nd = w[2+gas.nspecs + idust*4 + 0]
+            vd = w[2+gas.nspecs + idust*4 + 1]
+            td = w[2+gas.nspecs + idust*4 + 2]
+            ad = w[2+gas.nspecs + idust*4 + 3]
+            fdust[idust*4+1] = fdrag[idust]/(mdust[idust]*vd)
+            fdust[idust*4+0] = - (nd/vd) * fdust[idust*4+1]
+            fdust[idust*4+2] = dxtd[idust]
+            fdust[idust*4+3] = dxa[idust]
+            if fdust[idust*4+0] < 1e-25: fdust[idust*4+0] = 0.0
+        """"""
         #
         # Crash and NAN handles
         #
-        if np.isnan(f7) or np.isnan(f8) or np.isnan(f9) or np.isnan(f10):
+        if np.isnan(fdust).any():
             print 'NAN is found!'
-            print 'Densities: %2.5e  %2.5e'%(gas._sumRho(), dust._sumRho())
-            print 'Masses: ', gas.mass, dust.mass
+            print 'Tgas and vgas: %e, %e'%(w[1], w[0]*1e-5)
+            print 'ndust, vdust and Tdust: ', w[2+gas.nspecs:]
+            print fdust
             print
-            print 'Tgas and vgas: %e, %e'%(x1*1e-5, x2)
-            print 'ndust, vdust and Tdust: %2.5e  %2.5e  %d'%(nd, vd, td)
-            print '%e %e  %e  %e'%(f6, f7, f8, f9)
-            print
-            print fdrag, mdust, nd/vd
+            print fdrag, mdust
             print w
             raise SystemExit
     """"""
@@ -172,16 +185,8 @@ def vectorfield(x,w, p):
         f3 -- f6 -> number densities
         rest -> dust
     """
-    if np.abs(f1/x1) < 1e-25: f1 = 0.0
-    if np.abs(f2/x2) < 1e-25: f2 = 0.0
-    if np.abs(f3/n1) < 1e-25: f3 = 0.0
-    if np.abs(f4/n2) < 1e-25: f4 = 0.0
-    if np.abs(f5/n3) < 1e-25: f5 = 0.0
-    if (n4 > 1e-25 and (np.abs(f6/n4) < 1e-25)): f6 = 0.0
-    if np.abs(f7/nd) < 1e-25: f7 = 0.0
-    if np.abs(f8/vd) < 1e-25: f8 = 0.0
-    if np.abs(f9/td) < 1e-25: f9 = 0.0
-    if np.abs(f10/ad) < 1e-25: f10 = 0.0
-    f = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9, f10])
+    f = [f1,f2]+fchem+[a for a in fdust]
+    for (a,b) in zip(f,w):
+        if np.abs(a/(b+1e-30)) < 1e-25: a = 0.0
     return f
 """"""
