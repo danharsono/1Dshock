@@ -83,7 +83,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print
     #
     Tpre    = sol0[0,-2]
-    Tpost   = np.minimum(sol0[-5,2], sol0[-5,-2])
+    Tpost   = 1300.0
     """
     Initialize the radiative transfer
       - Calculate the Jrad
@@ -220,6 +220,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
             # Assume a radiative mean intensidies
             #
             """
+            Tpost = 1400.0
             Jrad = np.zeros(sol0[:,0].shape[0])
             Jrad[:numpoints] = ss*np.power(Tpre, 4.)/np.pi
             Jrad[numpoints:] = ss*np.power(Tpost,4.)/np.pi
@@ -230,7 +231,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         #
         Tchange = np.sqrt(np.power(np.abs(oldT - sol0[:,2]),2.0).sum())
         delT = np.maximum(delT, Tchange/np.float(xpre.shape[0]))
-        print 'Iteration: %d -- delT: %2.4f'%(iiter, delT)
+        print 'Iteration: %d -- delT: %2.4f'%(iiter+1, delT)
         """"""
         #
         # Check for convergence

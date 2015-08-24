@@ -14,7 +14,7 @@ glbabserr = [1.0, 1e-2, 0.1, 0.1, 0.1, 0.1, 1e-12, 1.0, 1e-2, 1e-8]
 """
     Solving the Rankine Hugionot conditions 2
 """
-def get_RHcondition2(u1=None, t1 = None, gas=None):
+def get_RHcondition2(u1=None, par=None, gas=None):
     """
         Given the initial conditions of the gas
         Return the post shock conditions
@@ -22,76 +22,27 @@ def get_RHcondition2(u1=None, t1 = None, gas=None):
     #
     # Find the mach number
     #
-    gam = gas._getGamma()
-    M1 = gas._sumRho()*u1*u1/(gam*sum(gas.numden)*kk*t1)
+    rhogas  = sum([a*b for (a,b) in zip(par[2:gas.nspecs+2]/par[0], gas.mass)])
+    Ngas    = sum(par[2:gas.nspecs+2]/par[0])
+    mbar    = rhogas/Ngas
+    gam = sum([a * (b * 2. - 2.) for (a,b) in
+        zip(par[2:gas.nspecs+2], gas.gamma)])
+    gam = (gam/sum(par[2:gas.nspecs+2]) + 2.)/(gam/sum(par[2:gas.nspecs+2]))
+    M1 = mbar/gam * u1*u1 /(kk*par[1])
     #
     # Solve the densities, velocities and temperatures
     #
     rho2 = gas._sumRho()*( (gam+1.0)*M1/( (gam-1.0)*M1+2.) )
-    u2 = u1 * (gas._sumRho()/rho2)
-    t2 = t1 * ( (gam - 1.) * M1 + 2.)*(2.*gam*M1 - (gam-1.))/( (gam + 1.)*
-        (gam+1.)*M1)
-    print 'Mach: %d'%(np.sqrt(M1))
+    u2 = u1 * ((gam-1.)*M1+2.)/( (gam+1.)*M1)
+    t2 = par[1] * (2.*gam*M1 - gam +1.)*( (gam-1.)*M1 + 2.)/( (gam + 1.)*
+        (gam + 1.) * M1)
+    print
+    print 'Mach: %d'%(np.sqrt(M1)), par[1], u1, mbar, gam
     print 'Density: %2.5e -->  %2.5e'%(gas._sumRho()/(2.0*mp), rho2/(2.0*mp))
-    print 'Temperature: %2.5e --> %2.5e'%(t1, t2)
+    print 'Temperature: %2.5e --> %2.5e'%(par[1], t2)
     print 'Velocity: %2.5e --> %2.5e'%(u1, u2)
     return rho2, u2, t2, M1
 """"""
-
-"""
-Solving the Rankine Hugionot conditions
-"""
-def get_RHcondition(rho1=None, u1=None, P1=None, gamma=3.0/2.0):
-    """
-    Given the initial conditions of the gas
-    Return the post shock conditions
-    """
-    #
-    # solve for velocity after the shock front
-    # Quadratic equation solver: ax^2 + bx + c = 0
-    # print u1, P1, rho1
-    #
-    gam1 = (gamma/(gamma-1.0))
-    aa = (1.0/2.0) - gam1
-    bb = (gam1*u1) + gam1*P1/(u1*rho1)
-    cc = -(1.0/2.0 * u1*u1 + gam1 * P1/rho1)
-    discrim = bb*bb - 4.*aa*cc
-    #
-    # check the discriminant
-    #
-    if discrim < 0:
-        print 'This has no solution'
-        raise ValueError
-    elif discrim == 0:
-        u2 = (-bb + np.sqrt(bb*bb - 4.0*aa*cc))/(2.0*aa)
-    else:
-        u21 = (-bb + np.sqrt(bb*bb - 4.0*aa*cc))/(2.0*aa)
-        u22 = (-bb - np.sqrt(bb*bb - 4.0*aa*cc))/(2.0*aa)
-        # Solve the pressure
-        P21 = rho1*u1*u1 + P1 - rho1*u1*u21
-        P22 = rho1*u1*u1 + P1 - rho1*u1*u22
-        if (P21 > P1):
-            u2 = u21
-            P2 = P21
-        elif (P22 > P1):
-            u2 = u22
-            P2 = P22
-        else:
-            print 'No shock solutions'
-            print u1, P1, rho1
-            print u21, u22
-            raise SystemError
-    """"""
-    
-    # Solve rho2
-    rho2 = rho1 * u1/u2
-    print 'Density: %2.5e -->  %2.5e'%(rho1/(2.0*mp), rho2/(2.0*mp))
-    print 'Pressure: %2.5e --> %2.5e'%(P1, P2)
-    print 'Velocity: %2.5e --> %2.5e'%(u1, u2)
-    
-    return P2, rho2, u2
-""""""
-
 """
 HD Solver
 """
@@ -139,13 +90,18 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
             #
             # Solve the shock front
             #
-            rho2, u2, t2, M1 = get_RHcondition2(u1=vshock, t1=w0[1], gas=gas)
+            w0 = [a for a in vode.y]
+            rho2, u2, t2, M1 = get_RHcondition2(u1=vshock, par = w0, gas=gas)
             #
             # Need to check the species fractions
             #
+            gam = sum([a * (b * 2. - 2.) for (a,b) in
+                zip(w0[2:gas.nspecs+2], gas.gamma)])
+            gam = (gam/sum(w0[2:gas.nspecs+2]) + 2.)/(gam/
+                sum(w0[2:gas.nspecs+2]))
+            gas._updateRho(rho=rho2, M1=M1, gamma = gam)
             numdentot = sum(gas.numden)
             gas.specfrac = [a /numdentot for a in gas.numden]
-            gas._updateRho(rho=rho2, M1=M1)
             #
             # Set the new inputs and then integrate
             #

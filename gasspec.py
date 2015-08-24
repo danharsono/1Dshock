@@ -103,15 +103,14 @@ class gasSpecs():
     def _sumGammas(self):
         return sum([a*b for (a,b) in zip(self.numden, self.gamma)])
     """"""
-    def _updateRho(self, rho=None, M1=None):
+    def _updateRho(self, rho=None, M1=None, gamma=None):
         """
             Update rho after shock
             using the compression factor
         """
         self.rho = rho
         for ispec in xrange(self.nspecs):
-            self.numden[ispec] *= ((self.gamma[ispec]+1.0)*M1/(
-               (self.gamma[ispec]-1.0)*M1+2.) )
+            self.numden[ispec] *= ((gamma+1.)*M1 / ( (gamma-1.)*M1 + 2.))
     """"""
     def _getGamma(self):
         """

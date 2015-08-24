@@ -58,7 +58,7 @@ def vectorfield(x,w, p):
     # Calculate the constants first
     #
     Rhogas  = sum([a*b for (a,b) in zip(w[2:gas.nspecs+2], gas.mass)])
-    Ngas    = sum(w[2:gas.nspecs+2]/x1)
+    Ngas    = sum(w[2:gas.nspecs+2])
     #
     # Dust changes
     #

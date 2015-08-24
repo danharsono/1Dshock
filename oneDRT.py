@@ -2,7 +2,8 @@ import numpy as np
 from python.natconst import *
 from scipy.special import expn
 from python.my_header import *
-import multiprocessing as mp
+#import multiprocessing as mp
+from joblib import Parallel, delayed
 ncpu = 2
 
 """
@@ -123,15 +124,10 @@ def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
     #
     # Calculate Jrad
     #
-#    pool = mp.Pool(processes=ncpu)
-#    results = [pool.apply(getJrad, args=(ix,Ipre, Ipost, taumax, srcall, tau))
-#        for ix in xrange(tau.shape[0]) ]
-#    results = np.array(results)
-#    Jrad[:]    = results[:,0]
-#    Frad[:]    = results[:,1]
-    for ix in xrange(tau.shape[0]):
-        res = getJrad(ix, Ipre, Ipost, taumax, srcall, tau)
-        Jrad[ix] = res[0]
-        Frad[ix] = res[1]
+    results = np.array(Parallel(n_jobs=2, backend='multiprocessing')(
+        delayed(getJrad)(ix,Ipre, Ipost, taumax, srcall, tau)
+        for ix in xrange(tau.shape[0])))
+    Jrad[:]    = results[:,0]
+    Frad[:]    = results[:,1]
     return Jrad, Frad
 """"""
