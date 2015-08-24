@@ -83,7 +83,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print
     #
     Tpre    = sol0[0,-2]
-    Tpost   = 1300.0
+    Tpost   = 1600.0
     """
     Initialize the radiative transfer
       - Calculate the Jrad
@@ -110,14 +110,15 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     Jrad[:numpoints] = ss*np.power(Tpre, 4.)/np.pi
     Jrad[numpoints:] = ss*np.power(Tpost,4.)/np.pi
     Jrad = np.array([sol0[:,0],Jrad[:]])
+    corrFrad = 0.0
     """
     Start solving the HD equations with radiative transfer
     iterate this such that Tpost change a bit
     """
     for iiter in xrange(niter):
         print
-        print ' Iteration: %d'%(iiter+1)
-        print 'Tpost: %8.2f'%(Tpost)
+        print ' Iteration: %d, Tpost: %8.2f, Frad: %2.5e'%(iiter+1,
+            Tpost, corrFrad)
         #
         # Old temperature solution
         #
@@ -199,11 +200,6 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         Tpost1   = np.minimum(sol0[-1,2], sol0[-1,-2])
         Tpost = (Tpost + Tpost1)/2.
         delT = np.abs(oldtpost - Tpost)
-        print 'Frad: %2.3e -- %2.3e'%(Frad[0], Frad[-1])
-        print 'Iter: %d -- Tpost: %8.2f %2.3e %2.3e'%(iiter, Tpost,
-            changeTpost, delT)
-        print
-        """"""
         print
         print 'Solving radiation field...'
         print
@@ -214,13 +210,13 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall,
             tau=tau)
         """"""
-        if iiter < 4:
+        if iiter < 2:
             """
             #
             # Assume a radiative mean intensidies
             #
             """
-            Tpost = 1400.0
+            Tpost = 1600.0
             Jrad = np.zeros(sol0[:,0].shape[0])
             Jrad[:numpoints] = ss*np.power(Tpre, 4.)/np.pi
             Jrad[numpoints:] = ss*np.power(Tpost,4.)/np.pi
@@ -231,6 +227,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         #
         Tchange = np.sqrt(np.power(np.abs(oldT - sol0[:,2]),2.0).sum())
         delT = np.maximum(delT, Tchange/np.float(xpre.shape[0]))
+        print 'Frad: %2.5e -- %2.5e'%(Frad[0], Frad[-3:].mean())
         print 'Iteration: %d -- delT: %2.4f'%(iiter+1, delT)
         """"""
         #

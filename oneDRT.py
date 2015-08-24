@@ -109,7 +109,7 @@ def getJrad(ix, Ipre, Ipost, taumax, src, tau):
     return Jrad,Frad
 """"""
 
-def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
+def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None, ncpu=3):
     """ 
     Calculate the mean itensity  and radiative flux
     """
@@ -124,7 +124,7 @@ def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
     #
     # Calculate Jrad
     #
-    results = np.array(Parallel(n_jobs=2, backend='multiprocessing')(
+    results = np.array(Parallel(n_jobs=ncpu, backend='multiprocessing')(
         delayed(getJrad)(ix,Ipre, Ipost, taumax, srcall, tau)
         for ix in xrange(tau.shape[0])))
     Jrad[:]    = results[:,0]
