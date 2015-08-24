@@ -97,11 +97,11 @@ class dustSpecs():
             return 0.0
         Cd = ( (2./(3.*s))*np.sqrt(np.pi*w[-2]/w[1]) + (
             (2.0*s*s+1.)/(np.sqrt(np.pi)*s*s*s) * np.exp(-s*s)) + (
-            (4.0*s**(4.) + 4.*s*s - 1)/(2.*s**(4.)) * erf(s)) )
+            (4.0*s**(4.) + 4.*s*s - 1.)/(2.*s**(4.)) * erf(s)) )
         #
         # Calculate the drag
         #
-        Fdrag1 = (-np.pi*w[-1]**(2.)*rhoGas * Cd/2. * (np.abs(vdg)*vdg) )
+        Fdrag1 = (-np.pi*w[-1]*w[-1]*rhoGas * Cd/2. * (np.abs(vdg)*vdg) )
         if np.isnan(Cd) or np.isnan(Fdrag1):
             Fdrag += 0.0
         else:
@@ -109,31 +109,39 @@ class dustSpecs():
         """"""
         return Fdrag
     """"""
-    def _calcqdust(self, Tg=None, s=None, Td=None, mass=None, gamma=5.0/3.0):
+    def _calcqdust(self, Tg=None, vdg=None, Td=None, mass=None, gamma=5.0/3.0):
         """
         Calculate the dust heating rate
         qd = rhogas CHd ( Trec - Td) |vg - vd|
         """
         from scipy.special import erfinv, erf
-        #
-        # Calculate the recovery temperature
-        #
-        fact = ((2.*gamma)/(gamma-1.) + 2.*s*s - ( 1./(
-            0.5 + s*s + (s/np.sqrt(np.pi)) * np.exp(-s*s) * (1./erf(s)))) )
-        Trec = Tg*(gamma-1.)/(gamma+1.) * fact
-        if s == 0.0:
-            Trec = Tg
-        #
-        # Calculate the heat transfer coefficient
-        #
-        CHd = (gamma+1.)/(gamma-1.) * (kk/(8.0*mass*s*s)) * (
-            (s/np.sqrt(np.pi))*np.exp(-s*s) + ((0.5 + s*s) * 
-            erf(s)) )
-        """"""
+        s = np.abs(vdg)/np.sqrt(2.*kk*Tg/mass)
         #
         # Calculate the heating rate
         #
-        qd = CHd*(Trec - Td)
+        if np.abs(vdg) <= 1e0:
+            qd = (gamma+1.)/(gamma-1.) * (Tg - Td) * (np.sqrt(
+                (kk*kk*kk*Tg)/(8.*np.pi*mass*mass*mass)))
+        else:
+            #
+            # Calculate the recovery temperature
+            #
+            fact = ((2.*gamma)/(gamma-1.) + 2.*s*s - ( 1./(
+                0.5 + s*s + (s/np.sqrt(np.pi)) * np.exp(-s*s) * (1./erf(s)))) )
+            Trec = Tg*(gamma-1.)/(gamma+1.) * fact
+            if s == 0.0:
+                Trec = Tg
+            #
+            # Calculate the heat transfer coefficient
+            #
+            CHd = (gamma+1.)/(gamma-1.) * (kk/(8.0*mass*s*s)) * (
+                (s/np.sqrt(np.pi))*np.exp(-s*s) + ((0.5 + s*s) * 
+                erf(s)) )
+            """"""
+            #
+            # Calculate the heating rate
+            #
+            qd = CHd*(Trec - Td)*np.abs(vdg)
         return qd
     """"""
     def _fevap(self, Td=None):
@@ -169,7 +177,6 @@ class dustSpecs():
         #
         qd = 0.0
         mbar = rhoGas/NGas
-        s = np.abs(vdg)/np.sqrt(2.*kk*w[1]/mbar)
         #
         # Calculate the heating rate
         # The function returns the middle part of the equation
@@ -178,12 +185,8 @@ class dustSpecs():
         gam = sum([a * (b * 2. - 2.) for (a,b) in
             zip(w[2:gas.nspecs+2], gas.gamma)])
         gam = (gam/sum(w[2:gas.nspecs+2]) + 2.)/(gam/sum(w[2:gas.nspecs+2]))
-        if np.abs(vdg) <= 1e2:
-            tempqd = (gam+1.)/(gam-1.) * (w[1] - w[-2]) * (np.sqrt(
-                (kk*kk*kk*w[1])/(8.*np.pi*mbar*mbar*mbar)))
-        else:
-            tempqd = ( self._calcqdust(Tg=w[1], s=s, Td=w[-2],
-                gamma=gam, mass=mbar) * np.abs(vg - vd))
+        tempqd = self._calcqdust(Tg=w[1], vdg=vdg, Td=w[-2], gamma=gam,
+            mass=mbar)
         if np.isnan(tempqd):
             qd += 0.0
         else:
@@ -197,13 +200,13 @@ class dustSpecs():
         # Calculate the dxa
         #
         if Jrad is None:
-            Jrad = ss*np.power(w[-2],4.)/(np.pi)
-        netheat = (qd + self._getEps(size=w[-1])*( np.pi*Jrad - ss*
-            np.power(w[-2], 4.)) )
+            netheat = qd
+        else:
+            netheat = (qd + self._getEps(size=w[-1])*( np.pi*Jrad - ss*
+                np.power(w[-2], 4.)) )
+        dxa = -fevap/(self.mdust*Hevap*vd) * netheat
         if netheat < 0.0:
-            fevap = 0.0
-        dxa = -fevap/(self.mdust*Hevap*w[-3]) * (qd +
-            self._getEps(size=w[-1])*( np.pi*Jrad - ss*np.power(w[-2],4.) ))
+            dxa = 0.0
         if debug:
             print '%2.3e %2.3e %2.3e'%(w[-3], w[-2], w[-1])
             print '%2.3e %2.3e %2.3e %2.3e'%(fevap, qd, netheat, dxa)
@@ -246,12 +249,8 @@ class dustSpecs():
         gam = sum([a * (b * 2. - 2.) for (a,b) in
             zip(w[2:gas.nspecs+2], gas.gamma)])
         gam = (gam/sum(w[2:gas.nspecs+2]) + 2.)/(gam/sum(w[2:gas.nspecs+2]))
-        if np.abs(vdg) <= 1e2:
-            tempqd = (gam+1.)/(gam-1.) * (w[1] - w[-2]) * (np.sqrt(
-                (kk*kk*kk*w[1])/(8.*np.pi*mbar*mbar*mbar)))
-        else:
-            tempqd = ( self._calcqdust(Tg=w[1], s=s, Td=w[-2],
-                gamma=gam, mass=mbar) * np.abs(vg - vd))
+        tempqd = self._calcqdust(Tg=w[1], vdg=vdg, Td=w[-2], gamma=gam,
+            mass=mbar)
         if np.isnan(tempqd):
             qd += 0.0
         else:
@@ -265,16 +264,15 @@ class dustSpecs():
         # Calculate the evaporation fraction
         #
         fevap = self._fevap(Td=Td)
-        if qd < 0.0:
-            fevap = 0.0
         #
         # Calculate the rate of change
         #
         if Jrad is None:
-            Jrad = ss*Td**(4.)/(np.pi)
-        dxtd = ( (3. * (1.0 - fevap))/( vd * Cpd *
-            self.mdust * w[-1]) * (qd +
-            self._getEps(size=w[-1])*( np.pi*Jrad - ss*np.power(Td, 4.))) )
+            netheat = qd
+        else:
+            netheat = qd + self._getEps(size=w[-1])*( np.pi*Jrad -
+                ss*np.power(Td, 4.))
+        dxtd = ( (3. * (1.0 - fevap))/( vd * Cpd * self.mdust * w[-1]) * netheat)
         return dxtd
     """"""
     def _getCpd(self, td = None):

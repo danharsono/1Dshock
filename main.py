@@ -49,7 +49,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     # Solve the whole shock
     # Pre-shock part
     #
-    xpre = np.logspace(-5, np.log10(sizex), numpoints)
+    xpre = np.logspace(-3, np.log10(sizex), numpoints)
     xpre = xpre[::-1]
     xpre = -xpre[:-1]
     #
@@ -83,7 +83,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print
     #
     Tpre    = sol0[0,-2]
-    Tpost   = np.minimum(sol0[-1,2], sol0[-1,-2])
+    Tpost   = np.minimum(sol0[-5,2], sol0[-5,-2])
     """
     Initialize the radiative transfer
       - Calculate the Jrad
@@ -95,14 +95,20 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     gas._getOpacs()
     print
     print 'Solving radiation field...'
+    print
     tau, srcall = calc_tauall(sol=sol0, gas=gas, dust=dust, gasKap=gasKap)
+    print 'TAU is done...'
     #
     # Vectorize method as of Jul 2015
     #
-    Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall, tau=tau)
-    print 'Tpre: %d  --  Tpost: %d'%(Tpre, Tpost)
-    print 'Frad: %2.3e -- %2.3e'%(Frad[0], Frad[-1])
-    print
+    Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall,
+        tau=tau)
+    #
+    # Assume a radiative mean intensidies
+    #
+    Jrad = np.zeros(sol0[:,0].shape[0])
+    Jrad[:numpoints] = ss*np.power(Tpre, 4.)/np.pi
+    Jrad[numpoints:] = ss*np.power(Tpost,4.)/np.pi
     Jrad = np.array([sol0[:,0],Jrad[:]])
     """
     Start solving the HD equations with radiative transfer
@@ -181,7 +187,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         else:
             corrFrad = Frad[-5]
         changeTpost = np.minimum(np.abs(np.power(np.abs(corrFrad/ss), 0.25))
-            /50., 2.0)
+            /2., 20.0)
         if corrFrad > 0.0:
             Tpost += changeTpost
         else:
@@ -207,6 +213,16 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         #
         Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall,
             tau=tau)
+        """"""
+        if iiter < 4:
+            """
+            #
+            # Assume a radiative mean intensidies
+            #
+            """
+            Jrad = np.zeros(sol0[:,0].shape[0])
+            Jrad[:numpoints] = ss*np.power(Tpre, 4.)/np.pi
+            Jrad[numpoints:] = ss*np.power(Tpost,4.)/np.pi
         """"""
         Jrad = np.array([sol0[:,0],Jrad[:]])
         #

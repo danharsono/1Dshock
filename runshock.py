@@ -12,7 +12,7 @@ tgas = 300.
 #
 # SOLVE
 #
-solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=6e3,
+solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=5e3,
    nspecs=ngas, ndust=ndust, v0=vshock, niter=30, ncpu=0, t0=tgas, restart=False)
 #print vshock
 #
@@ -125,7 +125,7 @@ for t1 in ax0.get_yticklabels():
 ax0.grid(lw=0.5, color='0.6', ls=':', alpha=0.6)
 
 ax1 = ax0.twinx()
-ax1.plot(x0, np.log10(sols['radiation'][:,1]), 'go', lw=1.2, ms=5)
+ax1.plot(x0, np.log10(sols['radiation'][:,1]), 'o:', lw=1.2, ms=5)
 ax1 = fig_labs(ax=ax1, xlab=r'\textbf{\boldmath$t$ [h]}',
     ylab=r'\boldmath$J_{\rm rad}$', fontsize=8, xlim=xlims,
     xform=r'\boldmath$%1.1f$', yform=r'\boldmath$%d$',xminloc=1.0,

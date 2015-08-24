@@ -3,7 +3,7 @@ from python.natconst import *
 from scipy.special import expn
 from python.my_header import *
 import multiprocessing as mp
-ncpu = 3
+ncpu = 2
 
 """
 The 1D radiative transfer module: Plane parallel
@@ -116,13 +116,22 @@ def calcJrad(Tpre=None, Tpost=None, srcall=None, tau=None):
     Ipost = (ss/np.pi)*np.power(Tpost, 4.)
     taumax = tau.max()
     #
+    # Empty arrays
+    #
+    Jrad = np.empty(tau.shape[0])
+    Frad = np.empty(tau.shape[0])
+    #
     # Calculate Jrad
     #
-    pool = mp.Pool(processes=ncpu)
-    results = [pool.apply(getJrad, args=(ix,Ipre, Ipost, taumax, srcall, tau))
-        for ix in xrange(tau.shape[0]) ]
-    results = np.array(results)
-    Jrad    = results[:,0]
-    Frad    = results[:,1]
+#    pool = mp.Pool(processes=ncpu)
+#    results = [pool.apply(getJrad, args=(ix,Ipre, Ipost, taumax, srcall, tau))
+#        for ix in xrange(tau.shape[0]) ]
+#    results = np.array(results)
+#    Jrad[:]    = results[:,0]
+#    Frad[:]    = results[:,1]
+    for ix in xrange(tau.shape[0]):
+        res = getJrad(ix, Ipre, Ipost, taumax, srcall, tau)
+        Jrad[ix] = res[0]
+        Frad[ix] = res[1]
     return Jrad, Frad
 """"""

@@ -83,7 +83,7 @@ def vectorfield(x,w, p):
     # Add the dust evaporation mass
     #
     dustLoss = -4.0 *np.pi * nd * vd * dust.mdust * ad*ad * dxa
-    if dustLoss < 0.0:
+    if dxa > 0.0:
         dustLoss = 0.0
     dumGas += dustLoss/(gas.mass[3])*(w[0]*gas.mass[3] + (kk*w[1]/w[0]))
     #
@@ -96,7 +96,7 @@ def vectorfield(x,w, p):
     # Calculate the variables for energy equation
     #
     varD = w[0]*w[0]*Rhogas
-    varE = kk*w[1]*sum([a*b for (a,b) in zip(gas.gamma, w[2:gas.nspecs+2])])
+    varE = kk*w[0]*sum([a*b for (a,b) in zip(gas.gamma, w[2:gas.nspecs+2])])
     #
     # Calculate the variable F with the dust
     #
@@ -144,9 +144,9 @@ def vectorfield(x,w, p):
         f9 = 0.0
         f10 = 0.0
     else:
-        f7 = -(nd/vd)*(fdrag/(mdust*vd)) # This is for number of dust
-        if f7 < 1e-25: f7 = 0.0
         f8 = fdrag/(mdust*vd) # Dust velocities change
+        f7 = -(nd/vd)*f8 # This is for number of dust
+        if f7 < 1e-25: f7 = 0.0
         f9 = dxtd
         f10 = dxa
         #
