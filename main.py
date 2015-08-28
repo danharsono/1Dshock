@@ -75,9 +75,9 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print '  velocity:   %2.2f  km/s'%(sol0[-2][1]/1e5)
     print '  Gas temperature   :   %d     K   '%(sol0[-2][2])
     print '  Postshock n   : 1E%2.1f  cm-3'%(np.log10(sum(sol0[-2][
-        2:gas.nspecs+2])))
+        3:gas.nspecs+3])))
     if ndust is not None:
-        dumid = 2+gas.nspecs
+        dumid = 3+gas.nspecs
         print '  Dust Temperature: %d     K   '%(sol0[-2][dumid+2])
         print '  Dust Densities: 1E%2.1f   cm^-3'%(np.log10(sol0[-2][dumid+0]))
         print '  Dust size     :   %1.4f microns'%(sol0[-2][dumid+3])
@@ -153,8 +153,8 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         print '  Input parameters       '
         print '  Shock velocity:   %2.2f  km/s'%(v0/1e5)
         print '  Pre shock T   :   %d     K   '%(t0)
-        print '  Pre-shock n   : 1E%2.1f  cm-3'%(np.log10(gas._sumRho()))
-        print '  Dust densities: %2.3e   cm-3'%(dust._sumRho())
+        print '  Pre-shock n   : 1E%2.1f  cm-3'%(np.log10(sum(gas.numden)))
+        print '  Dust densities: 1E%2.1f   cm-3'%(np.log10(dust.numden[0]))
         print '####################################################'
         print
         #
@@ -168,11 +168,14 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         print '  Condition at the end      '
         print '  velocity:   %2.2f  km/s'%(sol0[-2][1]/1e5)
         print '  Gas temperature   :   %d     K   '%(sol0[-2][2])
-        print '  Postshock n   : 1E%2.1f  cm-3'%(np.log10(gas._sumRho()))
+        print '  Postshock n   : 1E%2.1f  cm-3'%(np.log10(sum(sol0[-2][
+            3:gas.nspecs+3])))
         if ndust is not None:
-            print '  Dust Temperature: %d     K   '%(sol0[-2][9])
-            print '  Dust Densities: 1%2.1f   cm^-3'%(np.log10(dust._sumRho()))
-            print '  Dust size     :   %1.4f microns'%(sol0[-2][10])
+            dumid = 3+gas.nspecs
+            print '  Dust Temperature: %d     K   '%(sol0[-2][dumid+2])
+            print '  Dust Densities: 1E%2.1f   cm^-3'%(np.log10(sol0[-2][
+                dumid+0]))
+            print '  Dust size     :   %1.4f microns'%(sol0[-2][dumid+3])
         print '####################################################'
         print
         """

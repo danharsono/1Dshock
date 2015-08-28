@@ -120,7 +120,7 @@ def vectorfield(x,w, p):
     varF = - (dumGas + sum(dumDust)) + gas._calculateFreeEnergy(w=w)
     radiation = 0.0
     if haveJ:
-        radiation += (4.0*np.pi*Rhogas * gas._getKap(x2,
+        radiation += (4.0*np.pi*Rhogas * gas._getKap(w[1],
             destroyed=dust.destroyed) *
             (curJ - (ss*np.power(w[1], 4.)/np.pi)) +
             sum([4.0* np.pi * np.pi * w[dumid+4*id+0] *
