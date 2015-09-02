@@ -9,7 +9,7 @@ from progressbar import ProgressBar, Percentage, Bar
 """
 The main part of the shock code
 """
-def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, v0=6e5, t0=300., sizex=5.0, numpoints=1e5, dustfrac=0.005, mdust=3.3, ncpu=3, niter=5, restart = False):
+def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, v0=6e5, t0=300., sizex=5.0, numpoints=1e5, dustfrac=0.005, mdust=3.3, ncpu=3, niter=5, restart = False, Tpost0=1300.0):
     """
     The main part of the shock code
     Here:
@@ -85,7 +85,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print
     #
     Tpre    = sol0[0,-2]
-    Tpost   = 1600.0
+    Tpost   = Tpost0
     """
     Initialize the radiative transfer
       - Calculate the Jrad
@@ -193,7 +193,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         else:
             corrFrad = Frad[-5]
         changeTpost = np.minimum(np.abs(np.power(np.abs(corrFrad/ss), 0.25))
-            /2., 20.0)
+            /100., 5.0)
         if corrFrad > 0.0:
             Tpost += changeTpost
         else:
@@ -221,7 +221,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
             # Assume a radiative mean intensidies
             #
             """
-            Tpost = 1600.0
+            Tpost = Tpost0
             Jrad = np.zeros(sol0[:,0].shape[0])
             Jrad[:numpoints] = ss*np.power(Tpre, 4.)/np.pi
             Jrad[numpoints:] = ss*np.power(Tpost,4.)/np.pi

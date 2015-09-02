@@ -4,7 +4,7 @@ from scipy.special import expn
 from python.my_header import *
 #import multiprocessing as mp
 from joblib import Parallel, delayed
-ncpu = 2
+ncpu = 1
 
 """
 The 1D radiative transfer module: Plane parallel
