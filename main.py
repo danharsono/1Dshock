@@ -205,6 +205,16 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         Tpost1   = np.minimum(sol0[-1,2], sol0[-1,-2])
         Tpost = (Tpost + Tpost1)/2.
         delT = np.abs(oldtpost - Tpost)
+        #
+        # Calculate the change in temperature
+        #
+        #Tchange = np.sqrt(np.power(np.abs(oldT - sol0[:,2]),2.0).sum())
+        Tchange = np.abs(oldT-sol0[:,2]).max()
+        if (Tchange > delT):
+            delT    = Tchange
+            Tpost   = oldtpost
+        else:
+            delT = np.maximum(delT, Tchange/np.float(xpre.shape[0]))
         print
         print 'Solving radiation field...'
         print
@@ -227,18 +237,13 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
             Jrad[numpoints:] = ss*np.power(Tpost,4.)/np.pi
         """"""
         Jrad = np.array([sol0[:,0],Jrad[:]])
-        #
-        # Calculate the change in temperature
-        #
-        Tchange = np.sqrt(np.power(np.abs(oldT - sol0[:,2]),2.0).sum())
-        delT = np.maximum(delT, Tchange/np.float(xpre.shape[0]))
         print 'Frad: %2.5e -- %2.5e'%(Frad[0], Frad[-3:].mean())
         print 'Iteration: %d -- delT: %2.4f'%(iiter+1, delT)
         """"""
         #
         # Check for convergence
         #
-        if (delT < 1e-2):
+        if ((iiter > 5) and delT < 1e-2):
             iiter = iiter+1
             break
         """"""
