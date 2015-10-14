@@ -23,7 +23,7 @@ def calc_tauall(sol=None, gas=None, dust=None, gasKap=None):
     Calculate the optical depth
     dtau = alpha ds = rho kapp ds
     """
-    nspec = gas.nspecs
+    nspec   = gas.nspecs
     idust   = 2+nspec # where dust information starts
     #
     # Dust: ndust, vdust, tdust, adust

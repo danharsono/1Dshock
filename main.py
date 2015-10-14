@@ -1,15 +1,21 @@
 import numpy as np
 from python.natconst import *
 from solvers import solveHD
-from oneDRT import calc_tauall, calcJrad
-from gasspec import gasSpecs
-from dustspec import dustSpecs
+#from oneDRT import calc_tauall, calcJrad
+from gasspec import gasSpecs; from dustspec import dustSpecs
 from progressbar import ProgressBar, Percentage, Bar
-
+from copy import deepcopy
+#
+# Cython
+#
+import pyximport; pyximport.install(setup_args={
+    "include_dirs":np.get_include()},
+    reload_support = True)
+from cJRad import calc_tauall, calcJrad
 """
 The main part of the shock code
 """
-def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, v0=6e5, t0=300., sizex=5.0, numpoints=1e5, dustfrac=0.005, mdust=3.3, ncpu=3, niter=5, restart = False, Tpost0=1300.0):
+def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, v0=6e5, t0=300., sizex=5.0, numpoints=1e5, dustfrac=0.005, mdust=3.3, ncpu=3, niter=5, restart = False, Tpost0=1100.0):
     """
     The main part of the shock code
     Here:
@@ -98,13 +104,14 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     print
     print 'Solving radiation field...'
     print
-    tau, srcall = calc_tauall(sol=sol0, gas=gas, dust=dust, gasKap=gasKap)
+    bla     = calc_tauall([sol0, gas, dust], np.array(gasKap))
+    tau     = bla[:,0]
+    srcall  = bla[:,1]
     print 'TAU is done...'
     #
     # Vectorize method as of Jul 2015
     #
-    Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall,
-        tau=tau)
+    Jrad, Frad = calcJrad(Tpre, Tpost, srcall, tau, ncpu=3)
     #
     # Assume a radiative mean intensidies
     #
@@ -112,15 +119,16 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     Jrad[:numpoints] = ss*np.power(Tpre, 4.)/np.pi
     Jrad[numpoints:] = ss*np.power(Tpost,4.)/np.pi
     Jrad = np.array([sol0[:,0],Jrad[:]])
-    corrFrad = 0.0
+    corrFrad    = 0.0
+    delT1       = 0.0
     """
     Start solving the HD equations with radiative transfer
     iterate this such that Tpost change a bit
     """
     for iiter in xrange(niter):
         print
-        print ' Iteration: %d, Tpost: %8.2f, Frad: %2.5e'%(iiter+1,
-            Tpost, corrFrad)
+        print ' Iteration: %d, Tpost: %8.2f, dT: %8.2f, Frad: %2.5e'%(
+            iiter+1, Tpost, delT1, corrFrad)
         #
         # Old temperature solution
         #
@@ -167,12 +175,12 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         print '####################################################'
         print '  Condition at the end      '
         print '  velocity:   %2.2f  km/s'%(sol0[-2][1]/1e5)
-        print '  Gas temperature   :   %d     K   '%(sol0[-2][2])
+        print '  Gas temperature   :   %8.5f     K   '%(sol0[-2][2])
         print '  Postshock n   : 1E%2.1f  cm-3'%(np.log10(sum(sol0[-2][
             3:gas.nspecs+3])))
         if ndust is not None:
             dumid = 3+gas.nspecs
-            print '  Dust Temperature: %d     K   '%(sol0[-2][dumid+2])
+            print '  Dust Temperature: %8.5f     K   '%(sol0[-2][dumid+2])
             print '  Dust Densities: 1E%2.1f   cm^-3'%(np.log10(sol0[-2][
                 dumid+0]))
             print '  Dust size     :   %1.4f microns'%(sol0[-2][dumid+3])
@@ -184,7 +192,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
             - Caluclate tau
         """
         Tpre=sol0[0, -2]
-        oldtpost = Tpost
+        oldtpost = deepcopy(Tpost)
         #
         # Check the Frad and calculate Tpost accordingly
         #
@@ -192,38 +200,39 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
             corrFrad = Frad[0]
         else:
             corrFrad = Frad[-5]
-        changeTpost = np.minimum(np.abs(np.power(np.abs(corrFrad/ss), 0.25))
-            /100., 5.0)
-        if corrFrad > 0.0:
-            Tpost += changeTpost
-        else:
-            Tpost -= changeTpost
-        """"""
+        #changeTpost = np.minimum(np.abs(np.power(np.abs(corrFrad/ss), 0.25))
+        #    /100., 5.0)
+        #if corrFrad > 0.0:
+        #    Tpost += changeTpost
+        #else:
+        #    Tpost -= changeTpost
+        #""""""
         #
         # Check the temperature at boundary
         #
-        Tpost1   = np.minimum(sol0[-1,2], sol0[-1,-2])
-        Tpost = (Tpost + Tpost1)/2.
-        delT = np.abs(oldtpost - Tpost)
+        Tpost1  = 0.5*(oldtpost + sol0[-5, 2]) # bisection
+        Tpost2  = 0.5*(oldtpost + sol0[-1, 2])
+        Tpost   = 0.5*(Tpost1 + Tpost2)
+        print
+        print 'HERE!!', Tpost, sol0[-5,2], sol0[-1, 2]
+        print
+        delT1   = np.abs(oldtpost - Tpost)
         #
         # Calculate the change in temperature
         #
-        #Tchange = np.sqrt(np.power(np.abs(oldT - sol0[:,2]),2.0).sum())
-        Tchange = np.abs(oldT-sol0[:,2]).max()
-        if (Tchange > delT):
-            delT    = Tchange
-            Tpost   = oldtpost
-        else:
-            delT = np.maximum(delT, Tchange/np.float(xpre.shape[0]))
+        Tchange = np.sqrt(np.power(np.abs(oldT - sol0[:,2]),2.0).sum())
+        delT = np.maximum(delT1, Tchange/np.float(xpre.shape[0]))
         print
         print 'Solving radiation field...'
         print
-        tau, srcall = calc_tauall(sol=sol0, gas=gas, dust=dust, gasKap=gasKap)
+        bla     = calc_tauall([sol0, gas, dust], np.array(gasKap))
+        tau     = bla[:,0]
+        srcall  = bla[:,1]
+        print 'TAU is done...'
         #
         # Vectorize method as of Jul 2015
         #
-        Jrad, Frad = calcJrad(Tpre=Tpre, Tpost=Tpost, srcall=srcall,
-            tau=tau)
+        Jrad, Frad = calcJrad(Tpre, Tpost, srcall, tau, ncpu=3)
         """"""
         if iiter < 2:
             """

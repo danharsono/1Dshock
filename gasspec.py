@@ -27,6 +27,8 @@ class gasSpecs():
         self.rho = rho
         self.vgas = vgas
         self.tgas = tgas
+        self.logT   = np.zeros(100)
+        self.logK   = np.zeros(100)
         if nspecs > 0:
             self.nspecs = nspecs
         else:

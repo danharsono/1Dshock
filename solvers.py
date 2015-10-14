@@ -3,6 +3,14 @@ from python.natconst import *
 from scipy.integrate import odeint, ode
 from progressbar import ProgressBar, Percentage, Bar
 from copy import deepcopy
+#
+# call the solver
+#
+#from shock1d import vectorfield
+import pyximport; pyximport.install(setup_args={
+    "include_dirs":np.get_include()},
+    reload_support = True)
+from cshock1d import solve
 """
     ##################################################################
     ##################################################################
@@ -75,17 +83,13 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
     if haveJ:
         p  = [gas, dust, Jrad, True, debug]
     else:
-        p  = [gas, dust, None, False, debug]
+        p  = [gas, dust, np.zeros((20,2)), False, debug]
     #
     # Starting VALUES
     #
     print 'Starting VALUES: '
     print ['%8.5e'%(a) for a  in w0]
     print
-    #
-    # call the solver
-    #
-    from shock1d import vectorfield
     #
     # Iterator
     #
@@ -130,7 +134,7 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
             # Set the new inputs and then integrate
             #
             dt = (x[ixrange+1]-x[ixrange])/1e1
-            vode = ode(vectorfield).set_integrator('vode', atol=glbabserr,
+            vode = ode(solve).set_integrator('vode', atol=glbabserr,
                 rtol=telerr, order=5, method='bdf',nsteps=1e3,
                 first_step = dt*1e-3, with_jacobian=True)
             if haveJ:
@@ -159,7 +163,7 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                 #
                 w0 = deepcopy(vode.y)
                 tnow = vode.t
-                vode = ode(vectorfield).set_integrator('vode', atol=abserr,
+                vode = ode(solve).set_integrator('vode', atol=abserr,
                     rtol=telerr, order=5, method='bdf',nsteps=1e4,
                     first_step = np.maximum(1e-15, dt/1e3),
                     with_jacobian=True)
@@ -179,7 +183,7 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
             #
             # Setup the vode
             #
-            vode = ode(vectorfield).set_integrator('vode', atol=glbabserr,
+            vode = ode(solve).set_integrator('vode', atol=glbabserr,
                 rtol=telerr, order=5, method='bdf',nsteps=1e5,
                 with_jacobian=True, min_step=dt*1e-5, first_step=dt*1e-8)
             tnow = x[ixrange]
@@ -207,7 +211,7 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                         p  = [gas, dust, Jrad, True, debug]
                     else:
                         p  = [gas, dust, None, False, debug]
-                    vode = ode(vectorfield).set_integrator('vode',
+                    vode = ode(solve).set_integrator('vode',
                         atol=glbabserr, rtol=telerr, order=5, method='bdf',
                         nsteps=1e5, with_jacobian=True, min_step=1e-5,
                         first_step=1e-3)
@@ -237,7 +241,7 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                 #
                 # Setup the vode
                 #
-                vode = ode(vectorfield).set_integrator('vode', atol=glbabserr,
+                vode = ode(solve).set_integrator('vode', atol=glbabserr,
                     rtol=telerr, order=5, method='bdf',nsteps=1e5,
                     with_jacobian=True)
                 #

@@ -12,8 +12,9 @@ tgas = 300.
 #
 # SOLVE
 #
-solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=5e3,
-   nspecs=ngas, ndust=ndust, v0=vshock, niter=500, ncpu=0, t0=tgas, restart=False)
+solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=8e2,
+    nspecs=ngas, ndust=ndust, v0=vshock, niter=3, ncpu=0,
+    t0=tgas, restart=False, Tpost0=1100.)
 #print vshock
 #
 # Write out the solutions
