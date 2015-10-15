@@ -61,11 +61,11 @@ def get_RHcondition2(u1=None, par=None, gas=None):
     u2 = u1 * ((gam-1.)*M1+2.)/( (gam+1.)*M1)
     t2 = par[1] * (2.*gam*M1 - gam +1.)*( (gam-1.)*M1 + 2.)/( (gam + 1.)*
         (gam + 1.) * M1)
-    print
-    print 'Mach: %d'%(np.sqrt(M1)), par[1], u1, mbar, gam
-    print 'Density: %2.5e -->  %2.5e'%(rhogas/(2.0*mp), rho2/(2.0*mp))
-    print 'Temperature: %2.5e --> %2.5e'%(par[1], t2)
-    print 'Velocity: %2.5e --> %2.5e'%(u1, u2)
+    #print
+    #print 'Mach: %d'%(np.sqrt(M1)), par[1], u1, mbar, gam
+    #print 'Density: %2.5e -->  %2.5e'%(rhogas/(2.0*mp), rho2/(2.0*mp))
+    #print 'Temperature: %2.5e --> %2.5e'%(par[1], t2)
+    #print 'Velocity: %2.5e --> %2.5e'%(u1, u2)
     return rho2, u2, t2, M1
 """"""
 """

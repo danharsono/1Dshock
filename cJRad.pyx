@@ -2,12 +2,12 @@
 Cython version of the radiation calculations
 """
 from __future__ import division
-from numpy cimport ndarray, dtype; from scipy.special import expn
+from numpy cimport ndarray, dtype
+#from scipy.special import expn
 import numpy as np; cimport numpy as np
-cimport cython; from cpython cimport bool
-from cython.parallel import prange
+cimport cython;from cython_gsl cimport *
+from cython.parallel import prange; from libc.stdlib cimport malloc, free
 from joblib import Parallel, delayed
-import threading
 #
 # Types
 #
@@ -25,6 +25,8 @@ cdef extern from "math.h":
     double fmin(double, double)
 cdef double kk  = 1.3806488e-16
 cdef double ss  = 5.670367e-5
+# define a function pointer to a metric
+ctypedef double (*metric_ptr)(double[:], np.intp_t)
 #
 # Functions HERE
 #
@@ -111,107 +113,107 @@ cpdef np.ndarray [DTYPE_t, ndim=2] calc_tauall(list p, ndarray[DTYPE_t, ndim=1] 
 # Radiaton field
 #
 #def getJrad(ix, ntau, Ipre, Ipost, taumax, src, tau):
-cpdef getJrad(int ix, int ntau, double Ipre, double Ipost, double taumax, ndarray[DTYPE_t, ndim=1] src, ndarray[DTYPE_t, ndim=1] tau):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef double[:] getJrad(np.intp_t ix, int ntau, double Ipre, double Ipost, double taumax, double[:] src, double[:] tau):
     """
     Return radiation field at each grid
     """
     #
     # Variables
     #
-    cdef int ii
-    cdef double Jrad, Frad, dumleft, dumright
+    cdef np.intp_t ii
+    cdef double Jrad, Frad, dumleft, dumright, dsrc, nsign
+    cdef double out[2]
     #
     #
     #
     Jrad = 0.0 # Reset
     Frad = 0.0
     Jrad += src[ix]
-    Frad += 2. * src[ix]
     #
     # Add the other terms
     #
-    Jrad += 0.5 * (Ipre - src[0])*expn(2., taumax-tau[ix])
-    Frad += 2. * expn(3., taumax-tau[ix]) * (Ipre - src[0])
+    Jrad += 0.5 * (Ipre - src[0])*gsl_sf_expint_E2(taumax-tau[ix])
+    Frad += 2. * M_PI * gsl_sf_expint_En(3, taumax-tau[ix]) * (Ipre - src[0])
     Jrad += (0.5 * (Ipost - src[<unsigned int> (ntau-1)])*
-        expn(2., tau[ix]) )
-    Frad -= 2. * expn(3., tau[ix]) * (
+        gsl_sf_expint_E2(tau[ix]) )
+    Frad -= 2. * M_PI * gsl_sf_expint_En(3, tau[ix]) * (
         Ipost - src[<unsigned int> (ntau-1)])
     #
     # Use the derivative of the source functions
     #
-    if ix == 0:
-        Jrad += -0.5 * ((src[:-1]-src[1:])*expn(
-            2., tau[ix]-tau[:-1])).sum()
-        Frad += 2.0 * ((src[:-1]-src[1:])*expn(
-            3., tau[ix]-tau[:-1])).sum()
-    elif ix == tau.shape[0]-1:
-        Jrad += 0.5 * ((src[:-1]-src[1:])*expn(
-            2., np.abs(tau[ix]-tau[:-1]))).sum()
-        Frad += 2. * ((src[:-1]-src[1:])*expn(
-            3., np.abs(tau[ix]-tau[:-1]))).sum()
-    else:
-        """
-            Need to split the positive and negative
-        """
-        dumleft     = 0.5 * ((src[:ix]-src[1:ix+1]) *expn(
-            2., np.abs(tau[ix]-tau[:ix]))).sum()
-        dumright    = -0.5 * ((src[ix:-1]-src[ix+1:])*expn(
-            2., tau[ix]-tau[ix:-1])).sum()
-        Jrad += dumleft + dumright
-        #
-        # Frad
-        #
-        dumleft     = 2. * ((src[:ix]-src[1:ix+1]) *expn(
-            3., np.abs(tau[ix]-tau[:ix]))).sum()
-        dumright    = 2. * ((src[ix:-1]-src[ix+1:])*expn(
-            3., tau[ix]-tau[ix:-1])).sum()
-        Frad += dumleft + dumright
-    """"""
+    for ii in range(ntau-1):
+        dsrc    = (src[<unsigned int> (ntau-2-ii)] -
+            src[<unsigned int> (ntau-ii-1)])
+        if(ix < ii):
+            nsign   = -1.
+        else:
+            nsign   = 1.
+        Jrad    += (nsign*dsrc*gsl_sf_expint_E2(
+            fabs(tau[ix]-tau[<unsigned int> (ntau-ii-1)])) )
+        Frad    += (2*M_PI * dsrc *
+            gsl_sf_expint_En(3,
+            fabs(tau[ix]-tau[<unsigned int> (ntau-ii-1)])) )
     #if ix == 0:
-    #    Jrad    += -0.5 * ((src[ii]-src[<unsigned int> (1+ii)]) *
-    #        expn(2., tau[ix]-tau[ii]))
-    #    Frad    += 2.0 * ((src[ii]-src[<unsigned int> (1+ii)]) *
-    #        expn(3., tau[ix]-tau[ii]))
-    #elif ix == ntau-1:
-    #    for ii in range(ntau-1):
-    #        Jrad += 0.5 * ((src[ii]-src[<unsigned int> (1+ii)]) *
-    #            expn(2.,fabs(tau[ix]-tau[ii])))
-    #        Frad += 2. * ((src[ii]-src[<unsigned int> (1+ii)]) *
-    #            expn(3., fabs(tau[ix]-tau[ii])))
+    #    Jrad += -0.5 * ((src[:-1]-src[1:])*expn(
+    #        2., tau[ix]-tau[:-1])).sum()
+    #    Frad += 2.0 * ((src[:-1]-src[1:])*expn(
+    #        3., tau[ix]-tau[:-1])).sum()
+    #elif ix == tau.shape[0]-1:
+    #    Jrad += 0.5 * ((src[:-1]-src[1:])*expn(
+    #        2., np.abs(tau[ix]-tau[:-1]))).sum()
+    #    Frad += 2. * ((src[:-1]-src[1:])*expn(
+    #        3., np.abs(tau[ix]-tau[:-1]))).sum()
     #else:
     #    """
     #        Need to split the positive and negative
     #    """
-    #    dumleft     = 0.0
-    #    dumright    = 0.0
-    #    #
-    #    # Jrad
-    #    #
-    #    for ii in range(0,ix,1):
-    #        dumleft     += 0.5 * ((src[ii]-src[<unsigned int> (1+ii)]) *
-    #            expn(2., fabs(tau[ix]-tau[ii])))
-    #    for ii in range(ix,ntau-1,1):
-    #        dumright    += -0.5 * ((src[ii]-src[<unsigned int> (1+ii)]) *
-    #            expn(2., tau[ix]-tau[ii]))
+    #    dumleft     = 0.5 * ((src[:ix]-src[1:ix+1]) *expn(
+    #        2., np.abs(tau[ix]-tau[:ix]))).sum()
+    #    dumright    = -0.5 * ((src[ix:-1]-src[ix+1:])*expn(
+    #        2., tau[ix]-tau[ix:-1])).sum()
     #    Jrad += dumleft + dumright
     #    #
     #    # Frad
     #    #
-    #    for ii in range(0,ix,1):
-    #        dumleft     += 2. * ((src[ii]-src[<unsigned int> (1+ii)]) *
-    #            expn(3., fabs(tau[ix]-tau[ii])))
-    #    for ii in range(ix,ntau-1,1):
-    #        dumright    += 2. * ((src[ii]-src[<unsigned int> (1+ii)]) *
-    #            expn(3., tau[ix]-tau[ii]))
+    #    dumleft     = 2. * ((src[:ix]-src[1:ix+1]) *expn(
+    #        3., np.abs(tau[ix]-tau[:ix]))).sum()
+    #    dumright    = 2. * ((src[ix:-1]-src[ix+1:])*expn(
+    #        3., tau[ix]-tau[ix:-1])).sum()
     #    Frad += dumleft + dumright
-    #""""""
-    return Jrad,Frad
+    """"""
+    out[0]  = Jrad
+    out[1]  = Frad
+    return out
+""""""
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef double[:,:] getJrad1(int ntau, double Ipre, double Ipost, double taumax, double[:] src, double[:] tau):
+    """
+    now this should be all in c
+    """
+    #
+    # Variables
+    #
+    cdef np.intp_t ii
+    cdef double[:,::1] out    = np.empty((ntau, 2))
+    #
+    # Functions here
+    #
+    for ii in prange(ntau, nogil=True, num_threads=3):
+        with gil:
+            bla = getJrad(ii, ntau, Ipre, Ipost, taumax, src, tau)
+            out[ii,0] = bla[0]
+            out[ii,1] = bla[1]
+    raise SystemExit
+    return out
 """"""
 #
 # Call to outside
 #
 #cpdef calcJrad(double Tpre, double Tpost, ndarray[DTYPE_t, ndim=1] srcall, ndarray[DTYPE_t, ndim=1] tau, int ncpu = 2):
-def calcJrad(Tpre, Tpost, srcall, tau, ncpu=2):
+def calcJrad(double Tpre, double Tpost, double[:] srcall not None, double[:] tau not None, int ncpu=2):
     """ 
     Calculate the mean itensity  and radiative flux
     """
@@ -222,22 +224,22 @@ def calcJrad(Tpre, Tpost, srcall, tau, ncpu=2):
     cdef double Ipre, Ipost, taumax, out1, out2
     Ipre    = (ss/M_PI)*pow(Tpre, 4.)
     Ipost   = (ss/M_PI)*pow(Tpost, 4.)
-    taumax  = tau.max()
+    taumax  = max(tau)
     ntau    = <unsigned int> tau.shape[0]
     #
     # Empty arrays
     #
-    cdef ndarray [DTYPE_t, ndim=1] Jrad = np.zeros(tau.shape[0], dtype=DTYPE)
-    cdef ndarray [DTYPE_t, ndim=1] Frad = np.zeros(tau.shape[0], dtype=DTYPE)
+    cdef double[:] Jrad = np.zeros(ntau, dtype=DTYPE)
+    cdef double[:] Frad = np.zeros(ntau, dtype=DTYPE)
     #
     # Calculate Jrad
     #
-    results = np.array(Parallel(n_jobs=ncpu, backend='multiprocessing')(
-        delayed(getJrad)(ix, ntau, Ipre, Ipost, taumax, srcall, tau)
-        for ix in xrange(tau.shape[0])))
-    Jrad[:]    = results[:,0]
-    Frad[:]    = results[:,1]
+    #results = np.array(Parallel(n_jobs=ncpu, backend='multiprocessing')(
+    #    delayed(getJrad)(ix, ntau, Ipre, Ipost, taumax, srcall, tau)
+    #    for ix in xrange(tau.shape[0])))
+    bla = getJrad1(ntau, Ipre, Ipost, taumax, srcall, tau)
+    #    Jrad[:]    = results[:,0]
+    #    Frad[:]    = results[:,1]
+    raise SystemExit
     return Jrad, Frad
 """"""
-
-

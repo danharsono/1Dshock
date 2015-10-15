@@ -1,0 +1,17 @@
+from distutils.extension import Extension
+
+import numpy as np; import cython_gsl as gsl
+
+def make_ext(modname, pyxfilename):
+    return Extension(name=modname,
+        sources=[pyxfilename],
+        compiler=['gcc'],
+        extra_link_args=["-fopenmp"],
+        extra_compile_args=['-O3', '-std=c99', '-fopenmp'],
+        include_dirs=[np.get_include(), gsl.get_cython_include_dir()],
+        library_dirs=[gsl.get_library_dir()],
+        libraries=gsl.get_libraries())
+
+# Use the following to check compiler arguments
+def make_setup_args():
+    return dict(script_args=["--verbose"])
