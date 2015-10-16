@@ -45,13 +45,13 @@ cdef decipherW(ndarray[DTYPE_t, ndim=1] w, int nspecs, int ndust):
     # modify gas
     #
     for ig in range(nspecs):
-        w1[2+ig]    = w[2+ig]/w[0]
+        w1[2+ig]    = w[2+ig]
     #
     # modify dust: limit size
     #
     for id in range(ndust):
         if (w1[<unsigned int> (2+nspecs+4*id+3)] < 0.0):
-            w1[2+nspecs+4*id+3] = 1e-20
+            w1[2+nspecs+4*id+3] = 1e-30
     return w1
 """"""
 cdef double calcQdust(double Tg, double vdg, double Td, double mass, double gamma):
@@ -315,22 +315,18 @@ cdef double calculateFreeEnergy(ndarray[DTYPE_t, ndim=1] rates):
     cdef int ir, nr
     cdef double onev = 1.6021772e-12
     cdef double normrate
-    nr  = <unsigned int> rates.shape[0]
-    normrate =  0.0
-    for ir in range(nr):
-        normrate    += rates[ir]
-    return <double> (normrate*-4.48*onev)
+    return <double> (rates[0]*-4.48*onev)
 """"""
 cdef double gasKap(double Tg, int destroyed, ndarray[DTYPE_t, ndim=1] Tkap,
     ndarray[DTYPE_t, ndim=1] Kaps):
     """
         Averaged gas opacities
     """
-    if destroyed == 1:
-        return 0.5
-    else:
-        return <double> (pow(10.0, np.interp(Tg, Tkap, Kaps)))
-    """"""
+    cdef double kap
+    kap     = <double> pow(10.0, np.interp(Tg, Tkap, Kaps))
+    if (destroyed == 1 and (Tg < 1.4e3)):
+        kap = 0.5
+    return kap
 """"""
 """
 The vector field of the matrix to solve
@@ -525,7 +521,7 @@ cdef vectorfield(double x, np.ndarray[DTYPE_t, ndim=1] w, np.ndarray[DTYPE_t, nd
             YDOT[<unsigned int> (dumid + idust*4 + 0)]  += (
                 - (nd/vd) * YDOT[<unsigned int> (dumid + idust*4 + 1)])
             YDOT[<unsigned int> (dumid + idust*4 + 2)]  += dxtd[idust]
-            YDOT[<unsigned int> (dumid + idust*4 + 1)]  += dxa[idust]
+            YDOT[<unsigned int> (dumid + idust*4 + 3)]  += dxa[idust]
             #
             # Crash and BURN handles
             #
@@ -569,8 +565,6 @@ cdef vectorfield(double x, np.ndarray[DTYPE_t, ndim=1] w, np.ndarray[DTYPE_t, nd
         f3 -- f6 -> number densities
         rest -> dust
     """
-    for ig in range(<unsigned int> (YDOT.shape[0])):
-        if (fabs(YDOT[ig]/w[ig]) < 1e-30): YDOT[ig] = 0.0
     return YDOT
 """"""
 #

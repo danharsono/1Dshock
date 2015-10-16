@@ -98,21 +98,6 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
       - Caluclate tau
     """
     #
-    # Get the opacities
-    #
-    gas._getOpacs()
-    print
-    print 'Solving radiation field...'
-    print
-    bla     = calc_tauall([sol0, gas, dust], np.array(gasKap))
-    tau     = bla[:,0]
-    srcall  = bla[:,1]
-    print 'TAU is done...'
-    #
-    # Vectorize method as of Jul 2015
-    #
-    Jrad, Frad = calcJrad(Tpre, Tpost, srcall, tau, ncpu=3)
-    #
     # Assume a radiative mean intensidies
     #
     Jrad = np.zeros(sol0[:,0].shape[0])

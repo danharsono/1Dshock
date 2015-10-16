@@ -18,7 +18,7 @@ from cshock1d import solve
 #
 # Global absolute error
 #
-glbabserr = [1.0, 1e-2, 0.1, 0.1, 0.1, 0.1, 1e-12, 1.0, 1e-2, 1e-8]
+glbabserr = [1e-2, 1e-5, 1e-4, 1e-4, 1e-4, 1e-4, 1e-25, 1e-2, 1e-5, 1e-20]
 def createInputs(v0, t0, gas, dust):
     """
     Function to create input parameters
@@ -27,7 +27,7 @@ def createInputs(v0, t0, gas, dust):
     # Input structure: vgas, tgas, nspec, ndust1, vdust1, tdust1, adust1,...
     #
     w = [v0, t0] # initial gas velocity and temperature
-    w += [a*v0 for a in gas.numden]
+    w += [a for a in gas.numden]
     for idust in range(dust.nspecs):
         w += [dust.numden[idust]]
         w += [v0]
@@ -68,6 +68,16 @@ def get_RHcondition2(u1=None, par=None, gas=None):
     #print 'Velocity: %2.5e --> %2.5e'%(u1, u2)
     return rho2, u2, t2, M1
 """"""
+def checkDust(w, gas, dust):
+    if (not dust.destroyed and (w[1] > 1.4e3)):
+        dust.destroyed=True
+        #
+        # Add the components
+        #
+        Rhogas = sum([a*b for (a,b) in zip(w[2:2+gas.nspecs+1], gas.mass)])
+        for ispec in xrange(gas.nspecs):
+            w[2+ispec]  += (gas.dustfrac[ispec] * dust.dustfrac*(
+                1.-dust.chonfrac)*Rhogas/gas.mass[ispec])
 """
 HD Solver
 """
@@ -84,12 +94,12 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
         p  = [gas, dust, Jrad, True, debug]
     else:
         p  = [gas, dust, np.zeros((20,2)), False, debug]
-    #
-    # Starting VALUES
-    #
-    print 'Starting VALUES: '
-    print ['%8.5e'%(a) for a  in w0]
-    print
+    #    #
+    #    # Starting VALUES
+    #    #
+    #    print 'Starting VALUES: '
+    #    print ['%8.5e'%(a) for a  in w0]
+    #    print
     #
     # Iterator
     #
@@ -162,6 +172,10 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                 # Create the new ode solver from this point
                 #
                 w0 = deepcopy(vode.y)
+                #
+                # Check if dust is destroyed
+                #
+                checkDust(w0, gas, dust)
                 tnow = vode.t
                 vode = ode(solve).set_integrator('vode', atol=abserr,
                     rtol=telerr, order=5, method='bdf',nsteps=1e4,
@@ -232,6 +246,10 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                 # Create the new ode solver from this point
                 #
                 w0      = deepcopy(vode.y)
+                #
+                # Check if dust is destroyed
+                #
+                checkDust(w0, gas, dust)
                 tnow    = vode.t
                 #
                 # Check for NAN
@@ -244,12 +262,6 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                 vode = ode(solve).set_integrator('vode', atol=glbabserr,
                     rtol=telerr, order=5, method='bdf',nsteps=1e5,
                     with_jacobian=True)
-                #
-                # Check if dust is destroyed
-                #
-                if (not dust.destroyed) and (w0[-2] > 2e3):
-                    dust.destroyed = True
-                """"""
                 if haveJ:
                     p  = [gas, dust, Jrad, True, debug]
                 else:

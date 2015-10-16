@@ -70,7 +70,7 @@ cdef np.ndarray [DTYPE_t, ndim=2] calctaus(int nspecs, ndarray[DTYPE_t, ndim=1] 
             sol[ix,<unsigned int> (idust+4)])*
             getEPS(sol[ix,<unsigned int> (idust+4)]))
     cdef ndarray[DTYPE_t, ndim=1] gasrho    = (np.sum(sol[:,3:3+nspecs]*
-        gmasses, axis=1)/sol[:,1])
+        gmasses, axis=1))
     for ix in range(x.shape[0]):
         dtau[ix]    = (gasrho[ix]*kapp[ix] + kapd[ix])*dx[<unsigned int> (1+ix)]
     tau[-1]     = 0.0
@@ -166,6 +166,10 @@ cpdef getJrad(np.intp_t ix, int ntau, double Ipre, double Ipost, double taumax, 
         else:
             Jrad    += (nsign*0.5*dsrc*gsl_sf_expint_E2(temp) )
             Frad    += (2*M_PI * dsrc * gsl_sf_expint_En(3,temp))
+    if Jrad < 0:
+        print 'NEGATIVE RADIATION FIELD!'
+        print Jrad
+        raise SystemExit
     return Jrad,Frad
 """"""
 #@cython.boundscheck(False)

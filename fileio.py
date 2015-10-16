@@ -28,7 +28,7 @@ def writeOut(solutions=None, Jrad=None, Frad=None, vshock=None, fname='testout',
     with h5py.File("%s.hdf5"%(fname), 'w') as fout:
         dset1 = fout.create_dataset("grid", grid.shape, dtype='f')
         dset1[:] = grid[:]
-        gas = solutions[:,3:3+ngas]/vgas[:,np.newaxis]
+        gas = solutions[:,3:3+ngas]
         gas = np.insert(gas, 0, tgas, axis=1)
         gas = np.insert(gas, 0, vgas, axis=1)
         dset = fout.create_dataset("gas", gas.shape, dtype='f')

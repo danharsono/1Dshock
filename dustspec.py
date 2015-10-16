@@ -12,16 +12,17 @@ class dustSpecs():
     """
     def __init__(self, dustfrac = 0.01, nspecs=1, mdust=3.3, size=100e-4,
             gas=None):
-        self.gas = gas # gas properties
-        self.rho = self.gas.rho * dustfrac
-        self.nspecs = nspecs
-        self.mdust = 3.3
-        self.destroyed = False
+        self.dustfrac   = dustfrac
+        self.chonfrac   = 0.75
+        self.rho        = gas.rho * dustfrac
+        self.nspecs     = nspecs
+        self.mdust      = 3.3
+        self.destroyed  = False
         if nspecs == 1:
             self.nspecs = nspecs
             self.size = [size]
             self.mass = [self.mdust*((4./3.)*np.pi*size*size*size)]
-            self.numden = [self.rho*0.75/a for a in self.mass]
+            self.numden = [self.rho*self.chonfrac/a for a in self.mass]
             self.temp = [10.0]
             self.vel = [1e5]
         elif nspecs == 0:

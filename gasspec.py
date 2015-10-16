@@ -80,7 +80,6 @@ class gasSpecs():
             n0 = self.rho/sum(self.specfrac)
             self.numden = [a*n0/b for (a,b) in zip(self.specfrac,
                 self.mass)]
-            print ['%2.5e'%(a) for a in self.numden]
             #
             # Evolve this until steady state
             #
@@ -105,13 +104,13 @@ class gasSpecs():
         """
         Get opacities
         """
-        if destroyed:
-            return 0.5
-        else:
-            try:
-                return 10.0**(np.interp(t, self.logT, self.logK))
-            except AttributeError:
-                return 0.0
+        try:
+            kap = np.power(10., np.interp(t, self.logT, self.logK))
+        except AttributeError:
+            kap =0.0
+        if destroyed and t < 1.4e3:
+            kap =0.5
+        return kap
     """"""
     def _calculateR(self, vars=None):
         """

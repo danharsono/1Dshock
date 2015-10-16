@@ -26,14 +26,8 @@ fileio.writeOut(solutions=solutions, Jrad=Jrad, Frad=Frad,
 #
 sols = fileio.readOut(fname='shockout')
 #
-# Check the radiation
-#
-#from calcRadFlux import calcJrad
-#calcJrad(sols)
-#
 # position is relative to the shock front
 #
-#sols['gas'].attrs['vhshock'] = 6.5e5
 x0 = sols['grid']/sols['gas'].attrs['vshock']
 x0 = x0/3600.0
 #
@@ -127,7 +121,7 @@ ax0.grid(lw=0.5, color='0.6', ls=':', alpha=0.6)
 
 ax1 = ax0.twinx()
 ax1.plot(x0, np.log10(sols['radiation'][:,1]), 'g-', lw=1.2, ms=5)
-ax1.plot(x0, np.log10(sols['radiation'][:,2]), 'r--', lw=1.2, ms=5)
+ax1.plot(x0, np.log10(np.abs(sols['radiation'][:,2])), 'r--', lw=1.2, ms=5)
 ax1 = fig_labs(ax=ax1, xlab=r'\textbf{\boldmath$t$ [h]}',
     ylab=r'\boldmath$J_{\rm rad}$', fontsize=8, xlim=xlims,
     xform=r'\boldmath$%1.1f$', yform=r'\boldmath$%d$',xminloc=1.0,
