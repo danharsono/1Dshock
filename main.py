@@ -120,8 +120,6 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         # Old temperature solution
         #
         oldT = sol0[:,2]
-        print Jrad[1,:9], Jrad[1,-10:]
-        if iiter == 2: raise SystemExit
         #
         # Reset the gas and dust conditions
         #
