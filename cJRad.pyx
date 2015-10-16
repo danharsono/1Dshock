@@ -164,7 +164,7 @@ cpdef getJrad(np.intp_t ix, int ntau, double Ipre, double Ipost, double taumax, 
             Jrad    += 0.0
             Frad    += 0.0
         else:
-            Jrad    += (nsign*dsrc*gsl_sf_expint_E2(temp) )
+            Jrad    += (nsign*0.5*dsrc*gsl_sf_expint_E2(temp) )
             Frad    += (2*M_PI * dsrc * gsl_sf_expint_En(3,temp))
     return Jrad,Frad
 """"""
