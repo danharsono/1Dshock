@@ -105,7 +105,7 @@ class gasSpecs():
         Get opacities
         """
         try:
-            kap = np.power(10., np.interp(t, self.logT, self.logK))
+            kap = np.power(10., np.interp(np.log10(t), self.logT, self.logK))
         except AttributeError:
             kap =0.0
         if destroyed and t < 1.4e3:
