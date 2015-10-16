@@ -134,7 +134,7 @@ cpdef getJrad(np.intp_t ix, int ntau, double Ipre, double Ipost, double taumax, 
     #
     # Add the other terms
     #
-    if taumax-tau[ix] > 200:
+    if taumax-tau[ix] > 300:
         Jrad += 0.0
         Frad += 0.0
     else:
@@ -155,21 +155,17 @@ cpdef getJrad(np.intp_t ix, int ntau, double Ipre, double Ipost, double taumax, 
     for ii in range(ntau-1):
         dsrc    = (src[<unsigned int> (ntau-2-ii)] -
             src[<unsigned int> (ntau-ii-1)])
-        if(ix < ii):
+        if(ix < ntau-ii-1):
             nsign   = -1.
         else:
             nsign   = 1.
         temp    = fabs(tau[ix]-tau[<unsigned int> (ntau-ii-1)])
-        if temp > 200:
+        if temp > 300:
             Jrad    += 0.0
             Frad    += 0.0
         else:
             Jrad    += (nsign*0.5*dsrc*gsl_sf_expint_E2(temp) )
             Frad    += (2*M_PI * dsrc * gsl_sf_expint_En(3,temp))
-    if Jrad < 0:
-        print 'NEGATIVE RADIATION FIELD!'
-        print Jrad
-        raise SystemExit
     return Jrad,Frad
 """"""
 #@cython.boundscheck(False)
@@ -222,8 +218,8 @@ def calcJrad(Tpre, Tpost, srcall, tau, ncpu=2):
     #
     results = np.array(Parallel(n_jobs=ncpu, backend='multiprocessing')(
         delayed(getJrad)(ix, ntau, Ipre, Ipost, taumax, srcall, tau)
-        for ix in xrange(tau.shape[0])))
-    Jrad[:]    = results[:,0]
-    Frad[:]    = results[:,1]
+        for ix in xrange(1,tau.shape[0])))
+    Jrad[1:] = results[:,0]
+    Frad[1:] = results[:,1]
     return Jrad, Frad
 """"""

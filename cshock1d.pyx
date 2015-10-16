@@ -21,6 +21,7 @@ cdef extern from "math.h":
     double fabs(double a)
     double M_PI
     bint isnan(double x)
+    double log10(double x)
     double fmin(double, double)
 cdef double kk  = 1.3806488e-16
 cdef double ss  = 5.670367e-5
@@ -335,7 +336,7 @@ cdef double gasKap(double Tg, int destroyed, ndarray[DTYPE_t, ndim=1] Tkap,
         Averaged gas opacities
     """
     cdef double kap
-    kap     = <double> pow(10.0, np.interp(Tg, Tkap, Kaps))
+    kap     = <double> pow(10.0, np.interp(log10(Tg), Tkap, Kaps))
     if (destroyed == 1 and (Tg < 1.4e3)):
         kap = 0.5
     return kap
@@ -503,6 +504,11 @@ cdef vectorfield(double x, np.ndarray[DTYPE_t, ndim=1] w, np.ndarray[DTYPE_t, nd
                 (curJ- (ss * pow(w[<unsigned int> (dumid+4*idust+2)], 4.)/
                 M_PI)))
     varF += radiation # add the radiation
+    #if curJ > 0.0:
+    #    print x, varA, varB, varC, varD, varE, varF
+    #    print Jrad[0,:5], Jrad[1,:5]
+    #    print curJ
+    #    raise SystemExit
     #
     # The RHS matrix
     # Check few numbers to make sure these are not too large

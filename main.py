@@ -103,6 +103,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
     Jrad                = np.zeros(sol0[:,0].shape[0])
     Jrad[:numpoints]    = ss*np.power(Tpre, 4.)/np.pi
     Jrad[numpoints:]    = ss*np.power(Tpost,4.)/np.pi
+    Jrad[0]             = 0.0
     Jrad                = np.array([sol0[:,0],Jrad[:]])
     tau                 = np.zeros(sol0[:,0].shape[0]) + 1e3
     Frad                = np.zeros(sol0[:,0].shape[0]) + 1e-5
@@ -165,8 +166,9 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         Jrad, Frad = calcJrad(Tpre, Tpost, srcall, tau, ncpu=ncpu)
         Jrad = np.array([sol0[:,0],Jrad[:]])
         corrFrad    = Frad[-5]
-        Tpost   += np.sign(corrFrad)*np.power(np.abs(corrFrad),0.25)/1e2
+        Tpost   += np.sign(corrFrad)*np.power(np.abs(corrFrad),0.25)/1e1
         delT1   = Tpost - oldtpost
+        print 'END: ', ['%2.4e'%(a) for a in sol0[-1,:]]
         print 'Frad: %2.5e -- %2.5e'%(Frad[0], corrFrad)
         print 'Iteration: %d -- delT: %2.4f'%(iiter+1, delT)
         """"""

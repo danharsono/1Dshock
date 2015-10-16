@@ -54,6 +54,7 @@ def get_RHcondition2(u1=None, par=None, gas=None):
         zip(par[2:gas.nspecs+2], gas.gamma)])
     gam = (gam/sum(par[2:gas.nspecs+2]) + 2.)/(gam/sum(par[2:gas.nspecs+2]))
     M1 = mbar/gam * u1*u1 /(kk*par[1])
+    print mbar, gam, u1, par[1], M1
     #
     # Solve the densities, velocities and temperatures
     #
@@ -285,10 +286,11 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
         #
         # Solver debug
         #
-        #        test    = solve(vode.t, vode.y, p)
-        #        print '%d %2.5e %2.5e %2.5e %2.5e %2.5e'%(ixrange,
-        #            vode.y[1], test[1], test[-2], test[2], test[3])
-        #        if ixrange > 3300: raise SystemExit
+        #if (ixrange < x.shape[0]/2) and (ixrange > x.shape[0]/2 -5):
+        #    test    = solve(vode.t, vode.y, p)
+        #    print vode.y
+        #    print ixrange, test
+        #    print
         #if ixrange < 2:
         #    print '%d  %2.5e'%(ixrange, x[ixrange]), solve(vode.t, vode.y, p)
         #if x[ixrange] >0:
@@ -297,7 +299,7 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
         #
         # DEBUG HERE
         #
-#        print '%2.5e'%(x[ixrange]), ['%2.3e'%(a) for a in w0], gas._sumRho(), dust._sumRho()
+        #print '%2.5e'%(x[ixrange]), ['%2.3e'%(a) for a in w0]
     """"""
     wsol1 = [vode.t]+w0
     #

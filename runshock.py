@@ -12,10 +12,9 @@ tgas = 300.
 #
 # SOLVE
 #
-solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=3e3,
-    nspecs=ngas, ndust=ndust, v0=vshock, niter=3, ncpu=3,
+solutions, Jrad, vshock, Frad = main.shock_main(sizex=3e10, numpoints=5e3,
+    nspecs=ngas, ndust=ndust, v0=vshock, niter=2500, ncpu=4,
     t0=tgas, restart=False, Tpost0=1100.)
-#print vshock
 #
 # Write out the solutions
 #
@@ -33,7 +32,7 @@ x0 = x0/3600.0
 #
 # Plot these
 #
-xlims = [-2.5, 2.5]
+xlims = [-17.5, 17.5]
 fig, ax0 = subplots(1,1, figsize=[aaonecol, aaonecol])
 subplots_adjust(left=0.15, right=0.8, top=0.98, bottom=0.12)
 
@@ -120,8 +119,9 @@ for t1 in ax0.get_yticklabels():
 ax0.grid(lw=0.5, color='0.6', ls=':', alpha=0.6)
 
 ax1 = ax0.twinx()
-ax1.plot(x0, np.log10(sols['radiation'][:,1]), 'g-', lw=1.2, ms=5)
-ax1.plot(x0, np.log10(np.abs(sols['radiation'][:,2])), 'r--', lw=1.2, ms=5)
+ax1.plot(x0, np.log10(sols['radiation'][:,1]+1e-10), 'g-', lw=1.2, ms=5)
+ax1.plot(x0, np.log10(np.abs(sols['radiation'][:,2])+1e-10),
+    'r--', lw=1.2, ms=5)
 ax1 = fig_labs(ax=ax1, xlab=r'\textbf{\boldmath$t$ [h]}',
     ylab=r'\boldmath$J_{\rm rad}$', fontsize=8, xlim=xlims,
     xform=r'\boldmath$%1.1f$', yform=r'\boldmath$%d$',xminloc=1.0,
