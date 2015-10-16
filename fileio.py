@@ -12,7 +12,7 @@ def readOut(fname='testout'):
     return f
 """"""
 
-def writeOut(solutions=None, Jrad=None, vshock=None, fname='testout', ngas=3, ndust=1):
+def writeOut(solutions=None, Jrad=None, Frad=None, vshock=None, fname='testout', ngas=3, ndust=1):
     """
         Write the output
         solutions: x, vgas, tgas, nh, nh2, nhe, ndust, vdust, tdust, adust
@@ -51,7 +51,7 @@ def writeOut(solutions=None, Jrad=None, vshock=None, fname='testout', ngas=3, nd
         #
         # Radiation
         #
-        radiation = np.array([Jrad[0], Jrad[1][1]])
+        radiation = np.array([Jrad[0], Jrad[1][1], Frad[:]])
         radiation =  np.transpose(radiation)
         dset3 = fout.create_dataset("radiation", radiation.shape, dtype='f')
         dset3[:,:] = radiation[:,:]

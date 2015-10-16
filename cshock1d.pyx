@@ -45,7 +45,7 @@ cdef decipherW(ndarray[DTYPE_t, ndim=1] w, int nspecs, int ndust):
     # modify gas
     #
     for ig in range(nspecs):
-        w1[2+ig]    = w[ig]/w[0]
+        w1[2+ig]    = w[2+ig]/w[0]
     #
     # modify dust: limit size
     #

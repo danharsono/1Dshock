@@ -267,6 +267,14 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
         #
         w0 = [a for a in vode.y]
         #
+        # Solver debug
+        #
+        #if ixrange < 2:
+        #    print '%d  %2.5e'%(ixrange, x[ixrange]), solve(vode.t, vode.y, p)
+        #if x[ixrange] >0:
+        #    print '%d  %2.5e'%(ixrange, x[ixrange]), solve(vode.t, vode.y, p)
+        #    raise SystemExit
+        #
         # DEBUG HERE
         #
 #        print '%2.5e'%(x[ixrange]), ['%2.3e'%(a) for a in w0], gas._sumRho(), dust._sumRho()

@@ -177,7 +177,7 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         #
         Jrad, Frad = calcJrad(Tpre, Tpost, srcall, tau, ncpu=ncpu)
         Jrad = np.array([sol0[:,0],Jrad[:]])
-        Tpost   += np.sign(Frad[-5])*np.power(np.abs(Frad[-5]),0.25)/1e2
+        Tpost   += np.sign(Frad[-3])*np.power(np.abs(Frad[-3]),0.25)/1e2
         corrFrad    = Frad[-5]
         delT1   = Tpost - oldtpost
         print 'Frad: %2.5e -- %2.5e'%(Frad[0], Frad[-3:].mean())

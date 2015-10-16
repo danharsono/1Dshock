@@ -80,6 +80,7 @@ class gasSpecs():
             n0 = self.rho/sum(self.specfrac)
             self.numden = [a*n0/b for (a,b) in zip(self.specfrac,
                 self.mass)]
+            print ['%2.5e'%(a) for a in self.numden]
             #
             # Evolve this until steady state
             #
