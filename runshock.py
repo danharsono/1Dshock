@@ -33,7 +33,7 @@ x0 = x0/3600.0
 #
 # Plot these
 #
-xlims = [-15, 15]
+xlims = [-2.5, 2.5]
 fig, ax0 = subplots(1,1, figsize=[aaonecol, aaonecol])
 subplots_adjust(left=0.15, right=0.8, top=0.98, bottom=0.12)
 

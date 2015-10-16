@@ -18,7 +18,7 @@ from cshock1d import solve
 #
 # Global absolute error
 #
-glbabserr = [1e-2, 1e-5, 1e-4, 1e-4, 1e-4, 1e-4, 1e-25, 1e-2, 1e-5, 1e-20]
+glbabserr = [1e-2, 1e-5, 1e-4, 1e-4, 1e-4, 1e-4, 1e-15, 1e-2, 1e-5, 1e-15]
 def createInputs(v0, t0, gas, dust):
     """
     Function to create input parameters
@@ -47,8 +47,8 @@ def get_RHcondition2(u1=None, par=None, gas=None):
     #
     # Find the mach number
     #
-    rhogas  = sum([a*b for (a,b) in zip(par[2:gas.nspecs+2]/par[0], gas.mass)])
-    Ngas    = sum(par[2:gas.nspecs+2]/par[0])
+    rhogas  = sum([a*b for (a,b) in zip(par[2:gas.nspecs+2], gas.mass)])
+    Ngas    = sum(par[2:gas.nspecs+2])
     mbar    = rhogas/Ngas
     gam = sum([a * (b * 2. - 2.) for (a,b) in
         zip(par[2:gas.nspecs+2], gas.gamma)])
@@ -77,11 +77,11 @@ def checkDust(w, gas, dust):
         Rhogas = sum([a*b for (a,b) in zip(w[2:2+gas.nspecs+1], gas.mass)])
         for ispec in xrange(gas.nspecs):
             w[2+ispec]  += (gas.dustfrac[ispec] * dust.dustfrac*(
-                1.-dust.chonfrac)*Rhogas/gas.mass[ispec])
+                1.-dust.chonfrac)*1e-9/gas.mass[ispec])
 """
 HD Solver
 """
-def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jrad = None, abserr=1e-10, telerr = 1e-10):
+def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jrad = None, abserr=1e-10, telerr = 1e-6):
     """
         Call the solver with initial conditions v0 and t0
     """
@@ -141,6 +141,10 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                 """"""
             """"""
             #
+            # Check if dust is destroyed
+            #
+            checkDust(w0, gas, dust)
+            #
             # Set the new inputs and then integrate
             #
             dt = (x[ixrange+1]-x[ixrange])/1e1
@@ -199,7 +203,7 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
             #
             vode = ode(solve).set_integrator('vode', atol=glbabserr,
                 rtol=telerr, order=5, method='bdf',nsteps=1e5,
-                with_jacobian=True, min_step=dt*1e-5, first_step=dt*1e-8)
+                with_jacobian=True, min_step=dt*1e-5, first_step=dt*1e-6)
             tnow = x[ixrange]
             vode.set_initial_value(w0, x[ixrange]).set_f_params(p)
             wsol1 = [vode.t]+w0
@@ -227,8 +231,8 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
                         p  = [gas, dust, None, False, debug]
                     vode = ode(solve).set_integrator('vode',
                         atol=glbabserr, rtol=telerr, order=5, method='bdf',
-                        nsteps=1e5, with_jacobian=True, min_step=1e-5,
-                        first_step=1e-3)
+                        nsteps=1e5, with_jacobian=True, min_step=1e-5*dt,
+                        first_step=1e-4*dt)
                     vode.set_initial_value(w0, tnow).set_f_params(p)
                     vode.integrate(vode.t+dt)
                     ierror+=1
@@ -281,6 +285,10 @@ def solveHD(x=None, gas=None, dust=None, v0 = None, t0 = None, haveJ = False, Jr
         #
         # Solver debug
         #
+        #        test    = solve(vode.t, vode.y, p)
+        #        print '%d %2.5e %2.5e %2.5e %2.5e %2.5e'%(ixrange,
+        #            vode.y[1], test[1], test[-2], test[2], test[3])
+        #        if ixrange > 3300: raise SystemExit
         #if ixrange < 2:
         #    print '%d  %2.5e'%(ixrange, x[ixrange]), solve(vode.t, vode.y, p)
         #if x[ixrange] >0:

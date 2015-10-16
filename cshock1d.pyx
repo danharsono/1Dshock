@@ -269,6 +269,27 @@ cdef double calcDxTd(double nd, double vd, double td, double ad, double vg, doub
     return dxtd
 """"""
 #
+# Reaction rate
+#
+cdef double calcR(double Tg, double nH, double nH2):
+    """
+    Reactions
+    """
+    cdef double rate1, rate2, rate3, rate4
+    cdef double totrate
+    #
+    rate1 = 8.72e-33*pow((Tg/300.0), -0.6) # cm^6 per sec
+    rate2 = 1.83e-31*pow((Tg/300.0), -1) # cm^6 per sec
+    rate3 = 1.50e-9*exp(-46350./Tg)
+    if (-53280/Tg > -40.0):
+        rate4   = 3.75e-8*pow(Tg/300.0, -0.5)*exp(-53280./Tg)
+    else:
+        rate4   = 0.0
+    totrate = (nH * nH *(rate1*nH2 +
+        rate2*nH) - nH2*(rate3*nH2+rate4*nH) )
+    return totrate
+""""""
+#
 # Chemistry of gas -> move to another file later along with some above
 #
 cdef calculateR(double Tg, int nspecs, double nH, double nH2):
@@ -281,41 +302,32 @@ cdef calculateR(double Tg, int nspecs, double nH, double nH2):
     #
     # Variables
     #
-    cdef double rate1, rate2, rate3, rate4
     cdef ndarray[DTYPE_t, ndim=2] temprates = np.zeros(
         (nspecs, nspecs), dtype=DTYPE)
-    #
-    #
-    #
-    rate1 = 8.72e-33*pow((Tg/300.0), -0.6) # cm^6 per sec
-    rate2 = 1.83e-31*pow((Tg/300.0), -1) # cm^6 per sec
-    rate3 = 1.50e-9*exp(-46350./Tg)
-    if (-53280/Tg > -40.0):
-        rate4   = 3.75e-8*pow(Tg/300.0, -0.5)*exp(-53280./Tg)
-    else:
-        rate4   = 0.0
     #
     # Create the reaction matrix
     #
     if nspecs > 1:
-        totrate = (nH * nH *(rate1*nH2 +
-            rate2*nH) - nH2*(rate3*nH2+rate4*nH) )
+        totrate = calcR(Tg, nH,nH2)
     else:
         totrate = 0.0
     temprates[0,0] = -2. * totrate
     temprates[0,1] = totrate
     return temprates
 """"""
-cdef double calculateFreeEnergy(ndarray[DTYPE_t, ndim=1] rates):
+cdef double calculateFreeEnergy(double Tg, int nspecs, double nH, double nH2):
     """
     Calculate the net energy
     H + H + energy -> H2 
     H2 + energy -> H + H
     """
-    cdef int ir, nr
+    #
+    # Variables
+    #
     cdef double onev = 1.6021772e-12
-    cdef double normrate
-    return <double> (rates[0]*-4.48*onev)
+    #
+    totrate = calcR(Tg, nH, nH2)
+    return <double> (totrate*4.48*onev)
 """"""
 cdef double gasKap(double Tg, int destroyed, ndarray[DTYPE_t, ndim=1] Tkap,
     ndarray[DTYPE_t, ndim=1] Kaps):
@@ -473,7 +485,8 @@ cdef vectorfield(double x, np.ndarray[DTYPE_t, ndim=1] w, np.ndarray[DTYPE_t, nd
             w[<unsigned int> (dumid+idust*4+0)] * Cpd[idust] *
             w[<unsigned int> (dumid+idust*4+1)] *
             w[<unsigned int> (dumid+idust*4+2)] * rhod *dxa[idust])) )
-    varF    += - (dumGas + dumDust) + calculateFreeEnergy(RatesMat)
+    varF    += - (dumGas + dumDust) + calculateFreeEnergy(
+        Tgas, nspecs, w[2], w[3])
     #
     # Radiation part
     #
@@ -506,6 +519,8 @@ cdef vectorfield(double x, np.ndarray[DTYPE_t, ndim=1] w, np.ndarray[DTYPE_t, nd
     for ii in range(nspecs):
         YDOT[<unsigned int> (2+ii)]     += RatesMat[ii]
         YDOT[<unsigned int> (2+ii)]     += (gdustFrac[ii]*dustLoss/gmasses[ii])
+        YDOT[<unsigned int> (2+ii)]     -= (w[2+ii] * YDOT[0])
+        YDOT[<unsigned int> (2+ii)]     /= w[0]
     #
     #
     # DUST from here on

@@ -112,41 +112,6 @@ class gasSpecs():
             kap =0.5
         return kap
     """"""
-    def _calculateR(self, vars=None):
-        """
-        Calculate the reactions and update the values
-        This rate is the creation of gas species i 
-        in terms of number of reactions per unit time 
-        per unit volume
-        """
-        t = vars[1]
-        rate1 = 8.72e-33*(t/300.0)**(-0.6) # cm^6 per sec
-        rate2 = 1.83e-31*(t/300.0)**(-1) # cm^6 per sec
-        rate3 = 1.50e-9*np.exp(-46350./t)
-        rate4 = 3.75e-8*(t/300.0)**(-0.5)*np.exp(-53280./t)
-        #
-        # Create the reaction matrix
-        #
-        temprates = np.zeros((self.nspecs, self.nspecs), dtype=np.float64)
-        if self.nspecs > 1:
-            totrate = (vars[2]*vars[2]*(rate1*vars[3] +
-                rate2*vars[2]) - vars[3]*(rate3*vars[3]+rate4*vars[2]) )
-        else:
-            totrate = 0.0
-        temprates[0,0] = -2. * totrate
-        temprates[0,1] = totrate
-        return temprates
-    """"""
-    def _calculateFreeEnergy(self, w=None):
-        """
-        Calculate the net energy
-        H + H + energy -> H2 
-        H2 + energy -> H + H
-        """
-        normrate = self._calculateR(vars=w)
-        onev = 1.6021772e-12
-        return sum(normrate.sum(axis=0))*(-4.48*onev)
-    """"""
     def _getChemInput(self):
         """
         Create the input for the chemistry
