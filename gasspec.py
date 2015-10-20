@@ -1,11 +1,10 @@
-from python.natconst import *
+from python.natconst import *; from numpy import loadtxt
 import numpy as np; from copy import deepcopy
 from scipy.integrate import ode
 
 """
 The gas components for the shock code
 """
-
 def solveChem(x,w,p):
     """
         Solve the chemistry
@@ -17,7 +16,167 @@ def solveChem(x,w,p):
     dx = gas._calculateChem(t=t)
     return dx
 """"""
-
+#
+# Read in the species
+#
+def readSpecs(infile='species.dat'):
+    """
+    Read the species.dat
+    return it
+    """
+    dum = loadtxt(infile, dtype={
+        'names': ['id', 'species', 'frac', 'mass', 'gam', 'dustfrac'],
+        'formats': ['i', 'S5', 'd', 'd', 'd', 'd']})
+    specs = np.array([a for a in dum])
+    return specs
+""""""
+#
+# Indexer
+#
+def getIndx(a, specs):
+    if a == 'PHOTON':
+        return 'PH'
+    elif a == 'CRP':
+        return 'CRP'
+    elif a == 'CRPHOTON':
+        return 'CRPH'
+    elif a == 'ACC': # accrete
+        return 'ACC'
+    else:
+        try:
+            return (a== specs['species']).nonzero()[0][0]
+        except IndexError:
+            return -99
+    """"""
+""""""
+#
+# Read in the rates: 2 body reaction only
+#
+def readRates(specs, infile='rates.dat'):
+    """
+    Read the rates.dat file and create
+    """
+    fin     = open('rates.dat','r')
+    rates   = []
+    #
+    # This has to be 7 species
+    #
+    for line in fin:
+        columns = line.strip().split()
+        ncol    = len(columns)
+        rate    = {}
+        if ncol == 11:
+            rate['R1']      = getIndx(columns[1], specs)
+            rate['R2']      = getIndx(columns[2], specs)
+            rate['R3']      = getIndx(columns[3], specs)
+            rate['P1']      = getIndx(columns[4], specs)
+            rate['P2']      = getIndx(columns[5], specs)
+            rate['P3']      = getIndx(columns[6], specs)
+            rate['P4']      = getIndx(columns[7], specs)
+            rate['alp']     = float(columns[8])
+            rate['beta']    = float(columns[9])
+            rate['gamma']   = float(columns[10])
+        elif ncol == 10:
+            rate['R1']      = getIndx(columns[1], specs)
+            rate['R2']      = getIndx(columns[2], specs)
+            rate['R3']      = getIndx(columns[3], specs)
+            rate['P1']      = getIndx(columns[4], specs)
+            rate['P2']      = getIndx(columns[5], specs)
+            rate['P3']      = getIndx(columns[6], specs)
+            rate['P4']      = -99
+            rate['alp']     = float(columns[7])
+            rate['beta']    = float(columns[8])
+            rate['gamma']   = float(columns[9])
+        elif ncol == 9:
+            rate['R1']      = getIndx(columns[1], specs)
+            rate['R2']      = getIndx(columns[2], specs)
+            rate['R3']      = -99
+            rate['P1']      = getIndx(columns[3], specs)
+            rate['P2']      = getIndx(columns[4], specs)
+            rate['P3']      = getIndx(columns[5], specs)
+            rate['P4']      = -99
+            rate['alp']     = float(columns[6])
+            rate['beta']    = float(columns[7])
+            rate['gamma']   = float(columns[8])
+        elif ncol == 8:
+            rate['R1']      = getIndx(columns[1], specs)
+            rate['R2']      = getIndx(columns[2], specs)
+            rate['R3']      = -99
+            rate['P1']      = getIndx(columns[3], specs)
+            rate['P2']      = getIndx(columns[4], specs)
+            rate['P3']      = -99
+            rate['P4']      = -99
+            rate['alp']     = float(columns[5])
+            rate['beta']    = float(columns[6])
+            rate['gamma']   = float(columns[7])
+        elif ncol == 7: # ICE
+            rate['R1']      = getIndx(columns[1], specs)
+            rate['R2']      = getIndx(columns[2], specs)
+            rate['R3']      = -99
+            rate['P1']      = getIndx(columns[3], specs)
+            rate['P2']      = -99
+            rate['P3']      = -99
+            rate['P4']      = -99
+            rate['alp']     = float(columns[4])
+            rate['beta']    = float(columns[5])
+            rate['gamma']   = float(columns[6])
+        else:
+            if columns[0] == '9999':
+                break
+            else:
+                print 'UNKNOWN text format! %d \n'%(ncol)
+                print line, columns[0]
+                print 'Check input file\n'
+                raise SystemExit
+        """"""
+        rates.append(rate)
+    """"""
+    fin.close()
+    del rate
+    #
+    # Get the indices and rates directly
+    #
+    rates1 = np.zeros((len(rates),11))
+    for irate in range(len(rates)):
+        """
+        Options for rate reactions
+        """
+        rates1[irate,0]         = 0.0
+        if rates[irate]['R2'] == 'CRP':
+            rates1[irate, 0]    = 1.
+            rates1[irate, 2]    = -99
+        elif rates[irate]['R2'] == 'CRPH':
+            rates1[irate, 0]    = 2.
+            rates1[irate, 2]    = -99
+        elif rates[irate]['R2'] == 'PH':
+            rates1[irate, 0]    = 3.
+            rates1[irate, 2]    = -99
+        elif rates[irate]['R2'] == 'ACC':
+            rates1[irate, 0]    = 4.
+            rates1[irate, 2]    = -99
+        else:
+            rates1[irate, 2]    = rates[irate]['R2']
+        """"""
+        rates1[irate, 1]    = rates[irate]['R1']
+        rates1[irate, 3]    = rates[irate]['R3']
+        rates1[irate, 4]    = rates[irate]['P1']
+        try:
+            rates1[irate, 5]    = rates[irate]['P2']
+        except ValueError:
+            rates1[irate, 5]    = -99
+        rates1[irate, 6]    = rates[irate]['P3']
+        rates1[irate, 7]    = rates[irate]['P4']
+        rates1[irate, 8]    = rates[irate]['alp']
+        rates1[irate, 9]    = rates[irate]['beta']
+        rates1[irate, 10]   = rates[irate]['gamma']
+    """"""
+    rates = []
+    del rates
+    return np.array(rates1)
+""""""
+#
+# Gas
+#
 class gasSpecs():
     """ 
     Constructor
@@ -29,60 +188,33 @@ class gasSpecs():
         self.tgas = tgas
         self.logT   = np.zeros(100)
         self.logK   = np.zeros(100)
-        if nspecs > 0:
-            self.nspecs = nspecs
-        else:
-            print 
-            print 'Error initializing gas species'
-            print 'Nspecs: %d'%(nspecs)
-            print 'Nspecs must be > 0'
-            print
-            raise SystemExit
-        """"""
-        if nspecs == 1:
-            """
-            Only use He
-            """
-            self.nspecs = nspecs
-            self.specfrac = [1.]
-            self.mass = [4.0*mp]
-            self.numden = [self.rho/a for a in self.mass]
-            self.gamma = [5.0/2.0]
-            self.mugas = 2.4
-            self.dustfrac = [0]
-        elif nspecs == 3:
-            """
-            Use H, H2 and He
-            """
-            self.nspecs =3
-            self.mass = [mp, 2.0*mp, 4.0*mp]
-            self.specfrac = [0.01, 0.74, 0.25]
-            mu = 0.71 + 0.27/4.
-            self.mugas = mu**(-1.0)
-            n0 = self.rho/sum(self.specfrac)
-            self.numden = [a*n0/b for (a,b) in zip(self.specfrac,
-                self.mass)]
-            self.gamma = [5.0/2.0, 7.0/2.0, 5.0/2.0]
-            self.dustfrac = [0, 0, 0]
-        elif nspecs == 4:
-            """
-            Add SiO
-            """
-            self.nspecs=4
-            self.mass = [mp, 2.0*mp, 4.0*mp, 44.0*mp]
-            self.gamma = [5.0/2.0, 7.0/2.0, 5.0/2.0, 7.0/2.]
-            self.dustfrac = [0., 0., 0., 1.]
-            #
-            # get columns
-            #
-            self.mugas = 1./(0.83*(0.5 + 0.2*0.25))
-            self.specfrac = [1e-4, 0.83, 0.16656,0.0]
-            n0 = self.rho/sum(self.specfrac)
-            self.numden = [a*n0/b for (a,b) in zip(self.specfrac,
-                self.mass)]
-            #
-            # Evolve this until steady state
-            #
+        #
+        # Updated version: read in species.dat
+        #
+        dum     = readSpecs()
+        nspecs  = len(dum)
+        #
+        # Put it into the object
+        #
+        self.nspecs     = nspecs
+        self.mass       = [a*mp for a in dum['mass']]
+        self.gamma      = [a/2. for a in dum['gam']]
+        self.dustfrac   = [a for a in dum['dustfrac']]
+        #
+        # get columns
+        #
+        self.specfrac   = [a for a in dum['frac']]
+        n0              = self.rho/sum(self.specfrac)
+        self.numden     = [a*n0/b for (a,b) in zip(
+            self.specfrac, self.mass)]
+        self.specs      = dum
+        del dum
+        #
+        # Read the rates
+        #
+        self.rates      = readRates(self.specs)
+        # Evolve this until steady state
+        #
 #            temp = self._getSteady()
 #            self.numden = [a for a in temp]
     """"""

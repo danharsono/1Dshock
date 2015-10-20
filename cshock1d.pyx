@@ -270,30 +270,11 @@ cdef double calcDxTd(double nd, double vd, double td, double ad, double vg, doub
     return dxtd
 """"""
 #
-# Reaction rate
+# Chemistry of gas using rates
 #
-cdef double calcR(double Tg, double nH, double nH2):
-    """
-    Reactions
-    """
-    cdef double rate1, rate2, rate3, rate4
-    cdef double totrate
-    #
-    rate1 = 8.72e-33*pow((Tg/300.0), -0.6) # cm^6 per sec
-    rate2 = 1.83e-31*pow((Tg/300.0), -1) # cm^6 per sec
-    rate3 = 1.50e-9*exp(-46350./Tg)
-    if (-53280/Tg > -40.0):
-        rate4   = 3.75e-8*pow(Tg/300.0, -0.5)*exp(-53280./Tg)
-    else:
-        rate4   = 0.0
-    totrate = (nH * nH *(rate1*nH2 +
-        rate2*nH) - nH2*(rate3*nH2+rate4*nH) )
-    return totrate
-""""""
-#
-# Chemistry of gas -> move to another file later along with some above
-#
-cdef calculateR(double Tg, int nspecs, double nH, double nH2):
+@cython.boundscheck(False)
+cdef calculateR(double Tg, int nspecs, ndarray[DTYPE_t, ndim=1] nden,
+    ndarray[DTYPE_t, ndim=2] rate ):
     """
     Calculate the reactions and update the values
     This rate is the creation of gas species i 
@@ -303,20 +284,120 @@ cdef calculateR(double Tg, int nspecs, double nH, double nH2):
     #
     # Variables
     #
-    cdef ndarray[DTYPE_t, ndim=2] temprates = np.zeros(
-        (nspecs, nspecs), dtype=DTYPE)
+    cdef int nrate, irate
+    cdef int ip1, ip2, ip3, ip4, ip5, ip6, ip7
+    cdef double k, zeta, avmag, albedo, rad
+    cdef double d1, d2, d3, d4, d5,d6, d7
+    cdef ndarray[DTYPE_t, ndim=1] temprates = np.zeros(
+        (nspecs), dtype=DTYPE)
+    zeta    = 0.0
+    avmag   = 1e30
+    albedo  = 0.0
+    rad     = 1e9
     #
-    # Create the reaction matrix
+    # Loop through the rates to get formation and destruction rates
     #
-    if nspecs > 1:
-        totrate = calcR(Tg, nH,nH2)
-    else:
-        totrate = 0.0
-    temprates[0,0] = -2. * totrate
-    temprates[0,1] = totrate
+    for irate in range(rate.shape[0]):
+        """
+        Options for rate reactions
+        """
+        k = 0.0
+        if <unsigned int> rate[irate,0] == 1:
+            k   += zeta*rate[irate, 8] # alpha
+        elif <unsigned int> rate[irate,0] == 2:
+            k   += (zeta*rate[irate, 8]*pow( Tg / 300.0,
+                rate[irate,9]) * rate[irate,10]/ (1.0-albedo))
+        elif <unsigned int> rate[irate,0] == 3:
+            if (-rate[irate,9]*avmag > -30.0):
+                k   += (rad * rate[irate,8] * exp(-rate[irate, 10] *
+                    avmag) )
+            else: k += 0.0
+        elif <unsigned int> rate[irate,0] == 4:
+            print 'NOT AVAILABLE!'
+            #k   += iceform(Temp)
+            raise SystemExit
+        else:
+            if (-rate[irate,10]/Tg > -60.0):
+                k   += (rate[irate, 8]*pow(Tg / 300.0, rate[irate, 9])*
+                    exp(-rate[irate, 10] / Tg) )
+            else: k += 0.0
+        """"""
+        if k > 1e10:
+            print irate, rate[irate,0], rate[irate, 8:]
+            print rate[irate,8] * pow(Tg/300.0, rate[irate,9])
+            print exp(-rate[irate,10]/Tg)
+            raise SystemExit
+        #
+        #
+        #
+        if (k > 1e-90) and (~np.isinf(k)):
+            """
+            #
+            # Get the seven indices of products and reactants
+            # include this rate
+            #
+            """
+            d1  = 0.0
+            d2  = 0.0
+            d3  = d4 = d5 = d6 = d7 = 0.0
+            ip1 =   <unsigned int> rate[irate, 1]
+            ip2 =   <unsigned int> rate[irate, 2]
+            ip3 =   <unsigned int> rate[irate, 3]
+            ip4 =   <unsigned int> rate[irate, 4]
+            ip5 =   <unsigned int> rate[irate, 5]
+            ip6 =   <unsigned int> rate[irate, 6]
+            ip7 =   <unsigned int> rate[irate, 7]
+            #
+            # destruction
+            #
+            if ip2 != -99:
+                d1          += (-k*nden[ip2] if ip3 == -99 else
+                    -k*nden[ip2]*nden[ip3])
+                temprates[ip1]  += d1*nden[ip1]
+                d2          += (-k*nden[ip1] if ip3 == -99 else
+                    -k*nden[ip1]*nden[ip3])
+                temprates[ip2]   += d2*nden[ip2]
+                if ip3 != -99:
+                    d3          += (-k*nden[ip1]*nden[ip2])
+                    temprates[ip3]   += d3*nden[ip3]
+            else:
+                d1          += -k
+                temprates[ip1]   += d1*nden[ip1]
+            #
+            # formation
+            #
+            if ip2 != -99:
+                d4          += (k*nden[ip1]*nden[ip2] if ip3 == -99
+                    else k*nden[ip1]*nden[ip2]*nden[ip3])
+                temprates[ip4]   += d4
+            else:
+                d4          += k*nden[ip1]
+                temprates[ip4]   += d4
+            if ip5 != -99:
+                if ip2 != -99:
+                    d5          += (k*nden[ip1]*nden[ip2] if ip3 == -99
+                        else k*nden[ip1]*nden[ip2]*nden[ip3])
+                    temprates[ip5]   += d5
+                else:
+                    d5          += k*nden[ip1]
+                    temprates[ip5]   += d5
+            if ip6 != -99:
+                if ip2 != -99:
+                    d6          +=  (k*nden[ip1]*nden[ip2] if ip3 == -99
+                        else k*nden[ip1]*nden[ip2]*nden[ip3])
+                    temprates[ip6]   += d6
+                else:
+                    d6          += k*nden[ip1]
+                    temprates[ip6]   += d6
+            if ip7 != -99:
+                d7          +=  (k*nden[ip1]*nden[ip2] if ip3 == -99
+                    else k*nden[ip1]*nden[ip2]*nden[ip3])
+                temprates[ip7]   += d7
+            """"""
+    """"""
     return temprates
 """"""
-cdef double calculateFreeEnergy(double Tg, int nspecs, double nH, double nH2):
+cdef double calculateFreeEnergy(double totrate):
     """
     Calculate the net energy
     H + H + energy -> H2 
@@ -326,8 +407,6 @@ cdef double calculateFreeEnergy(double Tg, int nspecs, double nH, double nH2):
     # Variables
     #
     cdef double onev = 1.6021772e-12
-    #
-    totrate = calcR(Tg, nH, nH2)
     return <double> (totrate*4.48*onev)
 """"""
 cdef double gasKap(double Tg, int destroyed, ndarray[DTYPE_t, ndim=1] Tkap,
@@ -346,7 +425,7 @@ The vector field of the matrix to solve
 """
 @cython.boundscheck(False)
 @cython.cdivision
-cdef vectorfield(double x, np.ndarray[DTYPE_t, ndim=1] w, np.ndarray[DTYPE_t, ndim=2] Jrad, int haveJ, int nspecs, int ndust, ndarray[DTYPE_t, ndim=1] gmasses, ndarray[DTYPE_t, ndim=1] gammas, double rhod, int destroyed, ndarray[DTYPE_t, ndim=1] Tkap, ndarray[DTYPE_t, ndim=1] Kaps, ndarray[DTYPE_t, ndim=1] gdustFrac):
+cdef vectorfield(double x, np.ndarray[DTYPE_t, ndim=1] w, np.ndarray[DTYPE_t, ndim=2] Jrad, int haveJ, int nspecs, int ndust, ndarray[DTYPE_t, ndim=1] gmasses, ndarray[DTYPE_t, ndim=1] gammas, double rhod, int destroyed, ndarray[DTYPE_t, ndim=1] Tkap, ndarray[DTYPE_t, ndim=1] Kaps, ndarray[DTYPE_t, ndim=1] gdustFrac, np.ndarray[DTYPE_t, ndim=2] rate):
     """
     w   :  the variables to solve -> x, y 
     x   :  position with respect to the shock
@@ -433,7 +512,7 @@ cdef vectorfield(double x, np.ndarray[DTYPE_t, ndim=1] w, np.ndarray[DTYPE_t, nd
     # Calculate the gas part
     #
     cdef ndarray[DTYPE_t, ndim=1] RatesMat = (calculateR(Tgas, nspecs,
-        w[2], w[3])).sum(axis=0)
+        w[2:2+nspecs], rate))
     dumGas  = 0.0 # Reset gas component
     for ii in range(nspecs):
         dumGas += RatesMat[ii]*(w[0]*gmasses[ii] + (kk*w[1]/w[0]))
@@ -486,8 +565,7 @@ cdef vectorfield(double x, np.ndarray[DTYPE_t, ndim=1] w, np.ndarray[DTYPE_t, nd
             w[<unsigned int> (dumid+idust*4+0)] * Cpd[idust] *
             w[<unsigned int> (dumid+idust*4+1)] *
             w[<unsigned int> (dumid+idust*4+2)] * rhod *dxa[idust])) )
-    varF    += - (dumGas + dumDust) + calculateFreeEnergy(
-        Tgas, nspecs, w[2], w[3])
+    varF    += - (dumGas + dumDust) + calculateFreeEnergy(RatesMat[1])
     #
     # Radiation part
     #
@@ -618,6 +696,6 @@ cpdef solve(double x, np.ndarray[DTYPE_t, ndim=1] w, list p):
     return (vectorfield(x, w0, p[2], haveJ, nspecs, ndust,
         np.array(p[0].mass), np.array(p[0].gamma),
         p[1].mdust, destroyed, p[0].logT, p[0].logK,
-        np.array(p[0].dustfrac)))
+        np.array(p[0].dustfrac), p[0].rates))
 """"""
 
