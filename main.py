@@ -153,7 +153,6 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         # Calculate the change in temperature
         #
         Tchange = np.sqrt(np.power(np.abs(oldT - sol0[:,2]),2.0).sum())
-        delT = np.maximum(delT1, Tchange/np.float(xpre.shape[0]))
         print
         print 'Solving radiation field...'
         print
@@ -166,8 +165,9 @@ def shock_main(numden=1e14, rhogas=1e-9, nspecs=None, ndust=None, adust=300e-4, 
         Jrad, Frad = calcJrad(Tpre, Tpost, srcall, tau, ncpu=ncpu)
         Jrad = np.array([sol0[:,0],Jrad[:]])
         corrFrad    = Frad[-5]
-        Tpost   += np.sign(corrFrad)*np.power(np.abs(corrFrad),0.25)/1e1
+        Tpost   += np.sign(corrFrad)*np.power(np.abs(corrFrad),0.25)/2e2
         delT1   = Tpost - oldtpost
+        delT = np.maximum(np.abs(delT1), Tchange/np.float(xpre.shape[0]))
         print 'END: ', ['%2.4e'%(a) for a in sol0[-1,:]]
         print 'Frad: %2.5e -- %2.5e'%(Frad[0], corrFrad)
         print 'Iteration: %d -- delT: %2.4f'%(iiter+1, delT)
